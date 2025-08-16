@@ -148,29 +148,46 @@ def resolve_webhook_for_post(webhook_url: str | None) -> str | None:
     return _ensure_webhook_url(webhook_url)
 
 
-def post_to_discord_embed(embed: dict, webhook_url: str, want_message_id: bool = False) -> tuple[bool, str | None]:
+# --- Outcome taxonomy (Phase 4) ------------------------------------------------
+# code ∈ {"ok","rate_limited","hard_block","other_error"}
+
+def _ok(msg_id: str | None, structured: bool):
+    return (True, msg_id) if not structured else (True, msg_id, "ok", 0.0)
+
+def _fail(code: str, backoff: float, structured: bool, msg_id: str | None = None):
+    return (False, msg_id) if not structured else (False, msg_id, code, float(backoff))
+
+
+def post_to_discord_embed(
+    embed: dict,
+    webhook_url: str,
+    want_message_id: bool = False,
+    *,
+    structured: bool = False,
+) -> tuple[bool, str | None] | tuple[bool, str | None, str, float]:
     """
     Post a single embed to Discord with safe handling:
       • Respect 429 with Retry-After / reset-after.
       • Detect Cloudflare 1015 HTML and mark hard-block.
       • Throttle per webhook to avoid hitting limits.
-      • Abort run on long cooldowns (set global cooldown).
-    Returns (success, message_id) — message_id may be None if not requested or if 204/No Content.
-
-    NOTE: If webhook_url is None/empty, this will use the default selected by DEBUG_LEVEL.
+      • Global cooldown when limits are high.
+    Legacy return: (success, message_id).
+    Phase-4 return (when structured=True): (ok, msg_id, code, backoff).
+      code: "ok" | "rate_limited" | "hard_block" | "other_error"
+      backoff: seconds to wait before retrying (0.0 if none).
     """
     global _HARD_BLOCKED
 
     webhook_url = _ensure_webhook_url(webhook_url)
     if not webhook_url:
-        return (False, None)
+        return _fail("other_error", 0.0, structured)
 
     if _webhook_cooldown_active():
         remaining = max(0.0, _WEBHOOK_COOLDOWN_UNTIL - time.monotonic())
         print(f"⏸️ Webhook cooling down — {remaining:.1f}s remaining. Skipping post.")
-        return (False, None)
+        return _fail("rate_limited", remaining, structured)
 
-    # 🔧 Pass the base webhook URL so per-webhook pacing groups correctly (matches monolith behavior)
+    # 🔧 Pass the base webhook URL so per-webhook pacing groups correctly
     throttle_webhook(strip_query(webhook_url))
 
     url = _add_wait_param(webhook_url) if want_message_id else webhook_url
@@ -181,7 +198,7 @@ def post_to_discord_embed(embed: dict, webhook_url: str, want_message_id: bool =
         if response.status_code == 204:
             # No body returned (typical when wait=false). Success.
             time.sleep(1.0 + random.uniform(0.1, 0.6))
-            return (True, None)
+            return _ok(None, structured)
 
         if response.status_code == 200:
             # wait=true → JSON body; capture id if requested
@@ -193,7 +210,7 @@ def post_to_discord_embed(embed: dict, webhook_url: str, want_message_id: bool =
                 except Exception:
                     msg_id = None
             time.sleep(1.0 + random.uniform(0.1, 0.6))
-            return (True, msg_id)
+            return _ok(msg_id, structured)
 
         if response.status_code == 429:
             backoff = _parse_retry_after(response)
@@ -201,7 +218,7 @@ def post_to_discord_embed(embed: dict, webhook_url: str, want_message_id: bool =
             if backoff > 10:
                 _set_webhook_cooldown(backoff)
                 print(f"⏩ Backoff {backoff:.2f}s too long — entering global cooldown and skipping further posts.")
-                return (False, None)
+                return _fail("rate_limited", backoff, structured)
             time.sleep(backoff)
             throttle_webhook(strip_query(webhook_url))
             retry = requests.post(url, json=payload, timeout=10)
@@ -214,33 +231,40 @@ def post_to_discord_embed(embed: dict, webhook_url: str, want_message_id: bool =
                     except Exception:
                         msg_id = None
                 time.sleep(1.0 + random.uniform(0.1, 0.6))
-                return (True, msg_id)
+                return _ok(msg_id, structured)
             if _looks_like_cloudflare_1015(retry):
                 _HARD_BLOCKED = True
                 print("🛑 Cloudflare 1015 encountered on retry — aborting run to cool down.")
-                return (False, None)
+                return _fail("hard_block", max(15.0, backoff), structured)
             if retry.status_code == 429:
                 rb = _parse_retry_after(retry)
                 _set_webhook_cooldown(max(backoff, rb))
                 print(f"⏩ Secondary 429 — entering global cooldown for {max(backoff, rb):.2f}s.")
-                return (False, None)
+                return _fail("rate_limited", max(backoff, rb), structured)
             print(f"⚠️ Retry failed with status {retry.status_code}: {retry.text[:200]}")
-            return (False, None)
+            return _fail("other_error", 0.0, structured)
 
         if response.status_code in (403, 429) and _looks_like_cloudflare_1015(response):
             _HARD_BLOCKED = True
             print("🛑 Cloudflare 1015 HTML block detected — aborting run to cool down.")
-            return (False, None)
+            return _fail("hard_block", 30.0, structured)
 
         print(f"⚠️ Discord webhook responded {response.status_code}: {response.text[:300]}")
-        return (False, None)
+        return _fail("other_error", 0.0, structured)
 
     except Exception as e:
         print(f"❌ Failed to post embed to Discord: {e}")
-        return (False, None)
+        return _fail("other_error", 0.0, structured)
 
 
-def edit_discord_message(message_id: str, embed: dict, webhook_url: str, exact_base: bool = True) -> bool:
+def edit_discord_message(
+    message_id: str,
+    embed: dict,
+    webhook_url: str,
+    exact_base: bool = True,
+    *,
+    structured: bool = False,
+) -> bool | tuple[bool, str, float]:
     """
     Edit a previously-sent webhook message by ID.
     PATCH {webhookBase}/messages/{message_id} with {"embeds":[.]}
@@ -248,17 +272,19 @@ def edit_discord_message(message_id: str, embed: dict, webhook_url: str, exact_b
     exact_base=True → use the passed base exactly (no debug/prod override).
     Set exact_base=False only if you intentionally want override behavior.
 
-    NOTE: If webhook_url is None/empty and exact_base=False, this will use the default selected by DEBUG_LEVEL.
+    Legacy return: bool
+    Phase-4 return (when structured=True): (ok, code, backoff)
     """
     global _HARD_BLOCKED
 
     # Honor exact base by default to avoid editing the wrong channel
     base_url = webhook_url if exact_base else _ensure_webhook_url(webhook_url)
     if not base_url:
-        return False
+        return False if not structured else (False, "other_error", 0.0)
 
     if _webhook_cooldown_active():
-        return False
+        remaining = max(0.0, _WEBHOOK_COOLDOWN_UNTIL - time.monotonic())
+        return False if not structured else (False, "rate_limited", remaining)
 
     # 🔧 Pass the base webhook URL so per-webhook pacing groups correctly
     throttle_webhook(strip_query(base_url))
@@ -271,32 +297,36 @@ def edit_discord_message(message_id: str, embed: dict, webhook_url: str, exact_b
         response = requests.patch(url, json=payload, timeout=10)
         if response.status_code in (200, 204):
             time.sleep(0.6 + random.uniform(0.05, 0.3))
-            return True
+            return True if not structured else (True, "ok", 0.0)
+
         if response.status_code == 429:
             backoff = _parse_retry_after(response)
             print(f"⚠️ Edit rate limited — retry_after = {backoff:.2f}s")
             if backoff > 10:
                 _set_webhook_cooldown(backoff)
-                return False
+                return False if not structured else (False, "rate_limited", backoff)
             time.sleep(backoff)
             throttle_webhook(strip_query(base_url))
             retry = requests.patch(url, json=payload, timeout=10)
             if retry.status_code in (200, 204):
-                return True
+                return True if not structured else (True, "ok", 0.0)
             if _looks_like_cloudflare_1015(retry):
                 _HARD_BLOCKED = True
                 print("🛑 Cloudflare 1015 encountered on edit retry — aborting run.")
-                return False
-            return False
+                return False if not structured else (False, "hard_block", max(15.0, backoff))
+            return False if not structured else (False, "other_error", 0.0)
+
         if _looks_like_cloudflare_1015(response):
             _HARD_BLOCKED = True
             print("🛑 Cloudflare 1015 HTML block on edit — aborting run.")
-            return False
+            return False if not structured else (False, "hard_block", 30.0)
+
         print(f"⚠️ Edit failed {response.status_code}: {response.text[:300]}")
-        return False
+        return False if not structured else (False, "other_error", 0.0)
+
     except Exception as e:
         print(f"❌ Edit request failed: {e}")
-        return False
+        return False if not structured else (False, "other_error", 0.0)
 
 
 # --- Small public helpers for runner/orchestrator ---
