@@ -1,7 +1,8 @@
 # feedback/advice_pkg/titles.py
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from feedback.catalog import TITLE_BOOK
+
 
 def _pick_title_bank(result_side: str, tier: str) -> List[str]:
     """
@@ -18,12 +19,17 @@ def _pick_title_bank(result_side: str, tier: str) -> List[str]:
         return side_book.get("negative", []) or []
     return lines or []
 
-def get_title_phrase(score: float, won: bool, compound_flags: list[str]) -> Tuple[str, str]:
+
+def get_title_phrase(score: float, won: bool, compound_flags: list[str], rng: Optional[random.Random] = None) -> Tuple[str, str]:
     """
     Return (emoji, phrase) for the title line based on performance score,
-    win/loss, and important flags. Preserves legacy tiering and emojis,
-    with a bugfix: loss-only snark cannot appear on wins.
+    win/loss, and important flags.
+
+    Determinism: prefers provided local RNG; falls back to module-level random.
+    Backward compatible with callers that don't pass `rng`.
     """
+    chooser = rng.choice if rng is not None else random.choice
+
     try:
         score_val = float(score)
     except (ValueError, TypeError):
@@ -46,7 +52,7 @@ def get_title_phrase(score: float, won: bool, compound_flags: list[str]) -> Tupl
         tier = "very_low"
         bank = _pick_title_bank("win" if won else "loss", tier)
         emoji = "🎲" if won else "💀"
-        phrase = random.choice(bank) if bank else "played a game"
+        phrase = chooser(bank) if bank else "played a game"
         return emoji, phrase
 
     # Positive bands
@@ -72,5 +78,5 @@ def get_title_phrase(score: float, won: bool, compound_flags: list[str]) -> Tupl
 
     bank = _pick_title_bank("win" if won else "loss", tier)
     emoji = win_emoji if won else loss_emoji
-    phrase = random.choice(bank) if bank else "played a game"
+    phrase = chooser(bank) if bank else "played a game"
     return emoji, phrase
