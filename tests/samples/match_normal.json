@@ -1,0 +1,48 @@
+{
+  "id": 999888777,
+  "gameMode": 22,
+  "durationSeconds": 2410,
+  "startDateTime": 1725093600,
+  "players": [
+    {
+      "steamAccountId": 123456789,
+      "isRadiant": true,
+      "isVictory": true,
+      "kills": 9,
+      "deaths": 4,
+      "assists": 15,
+      "imp": 1.1,
+      "gold": 18000,
+      "goldSpent": 17400,
+      "gpm": 520,
+      "xpm": 610,
+      "networth": 17800,
+      "hero": { "name": "npc_dota_hero_vengefulspirit", "displayName": "Vengeful Spirit" },
+      "stats": {
+        "level": [1, 2, 3, 5, 7, 10, 14],
+        "campStack": [1, 1, 0],
+        "runes": [{ "type": "haste" }, { "type": "arcane" }],
+        "wards": [
+          { "isObserver": true },
+          { "isSentry": true },
+          { "isSentry": true }
+        ],
+        "wardDestruction": [{}, {}],
+        "actionsPerMinute": 160,
+        "heroHealing": 320,
+        "heroDamage": 9400,
+        "towerDamage": 1800,
+        "buildingDamage": 500,
+        "damageTaken": 8200,
+        "neutralKills": 14,
+        "laneCreeps": 78,
+        "jungleCreeps": 20,
+        "experiencePerMinute": 595,
+        "networthPerMinute": 465,
+        "fightParticipationPercent": 0.72,
+        "stunDuration": 4.2,
+        "disableDuration": 1.1
+      }
+    }
+  ]
+}
