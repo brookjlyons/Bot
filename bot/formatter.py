@@ -61,17 +61,31 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
     tags = result.get("feedback_tags", {})
     is_victory = player.get("isVictory", False)
 
-    # Deterministic randomness (seeded per match:player)
+    # Deterministic RNG (local) — seeded per match:player
+    seed_str = f"{match.get('id')}:{player.get('steamAccountId')}"
+    seed_hex = hashlib.md5(seed_str.encode()).hexdigest()
+    rng = random.Random(int(seed_hex, 16))
+
+    # Transitional: still seed global RNG for back-compat until advice* is updated
     try:
-        seed_str = f"{match.get('id')}:{player.get('steamAccountId')}"
-        random.seed(hashlib.md5(seed_str.encode()).hexdigest())
+        random.seed(seed_hex)
     except Exception:
         pass
 
-    advice = generate_advice(tags, stats, mode=mode)
+    # Advice (pass rng if supported; fall back to legacy signature otherwise)
+    try:
+        advice = generate_advice(tags, stats, mode=mode, rng=rng)  # new preferred path
+    except TypeError:
+        advice = generate_advice(tags, stats, mode=mode)  # legacy path
 
     score = float(result.get("score") or 0.0)
-    emoji, title = get_title_phrase(score, is_victory, tags.get("compound_flags", []))
+
+    # Title (pass rng if supported; fall back if not)
+    try:
+        emoji, title = get_title_phrase(score, is_victory, tags.get("compound_flags", []), rng=rng)  # new preferred
+    except TypeError:
+        emoji, title = get_title_phrase(score, is_victory, tags.get("compound_flags", []))  # legacy
+
     title = title[:1].lower() + title[1:]
 
     # 🔗 Steam avatar (optional)
@@ -108,7 +122,7 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         "flags": advice.get("flags", [])[:3],
         "tips": advice.get("tips", [])[:3],
         "matchId": match.get("id"),
-        "avatarUrl": avatar_url,  # ← new, optional
+        "avatarUrl": avatar_url,  # ← optional
     }
 
 # --- Minimal fallback embed for IMP-missing matches ---
@@ -166,5 +180,5 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
         "basicStats": basic_stats,
         "statusNote": status_note,
         "matchId": match.get("id"),
-        "avatarUrl": avatar_url,  # ← new, optional
+        "avatarUrl": avatar_url,  # ← optional
     }
