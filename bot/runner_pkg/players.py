@@ -16,10 +16,12 @@ from .webhook_client import (
     post_to_discord_embed,
     edit_discord_message,
     webhook_cooldown_active,
+    webhook_cooldown_remaining,
     is_hard_blocked,
     strip_query,
     resolve_webhook_for_post,  # ✅ NEW: get the actual posting URL
 )
+from .timeutil import now_iso
 
 
 def _debug_level() -> int:
@@ -136,7 +138,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                     if is_hard_blocked():
                         return False
                     if webhook_cooldown_active():
-                        print("🧯 Ending run early due to webhook cooldown.")
+                        print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
                         return False
                     print(f"⚠️ Failed to post private-data fallback for {player_name} match {match_id}")
             else:
@@ -173,7 +175,10 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                         "steamId": steam_id,
                         "matchId": match_id,              # ✅ store explicitly for upgrade/expiry
                         "messageId": msg_id,
+                        # Transitional: keep numeric for compatibility until pending.py is updated,
+                        # but also write ISO to support the schema and upcoming reader.
                         "postedAt": time.time(),
+                        "postedAtIso": now_iso(),
                         "webhookBase": strip_query(resolved),  # ✅ exact base used
                         "snapshot": result,
                     }
@@ -182,7 +187,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                     if is_hard_blocked():
                         return False
                     if webhook_cooldown_active():
-                        print("🧯 Ending run early due to webhook cooldown.")
+                        print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
                         return False
                     print(f"⚠️ Failed to post fallback embed for {player_name} match {match_id}")
             else:
@@ -216,7 +221,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                 if is_hard_blocked():
                     return False
                 if webhook_cooldown_active():
-                    print("🧯 Ending run early due to webhook cooldown (during upgrade).")
+                    print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
                     return False
                 print(f"⚠️ Failed to upgrade fallback for {player_name} match {match_id} — will retry later")
         else:
@@ -231,7 +236,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                     if is_hard_blocked():
                         return False
                     if webhook_cooldown_active():
-                        print("🧯 Ending run early due to webhook cooldown.")
+                        print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
                         return False
                     print(f"⚠️ Failed to post embed for {player_name} match {match_id}")
             else:
