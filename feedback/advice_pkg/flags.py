@@ -3,11 +3,14 @@ import random
 from typing import List, Optional
 from feedback.catalog import COMPOUND_FLAGS
 
-def select_flag_phrase(flags: List[str], mode: str) -> Optional[str]:
+
+def select_flag_phrase(flags: List[str], mode: str, rng: Optional[random.Random] = None) -> Optional[str]:
     """
     First matching flag wins. Honors catalog 'modes' gating.
-    Determinism is preserved via global RNG seeded upstream (formatter.py).
+    Determinism: prefers provided local RNG; falls back to module-level random for back-compat.
     """
+    chooser = rng.choice if rng is not None else random.choice
+
     for flag in flags:
         if not isinstance(flag, str):
             continue
@@ -19,5 +22,5 @@ def select_flag_phrase(flags: List[str], mode: str) -> Optional[str]:
             continue
         lines = entry.get("lines", [])
         if lines:
-            return random.choice(lines)
+            return chooser(lines)
     return None
