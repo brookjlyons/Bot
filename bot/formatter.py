@@ -139,8 +139,7 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
     basic_stats = f"Level {player.get('level', 0)}"
     if not is_turbo:
         basic_stats += f" • {player.get('goldPerMinute', 0)} GPM • {player.get('experiencePerMinute', 0)} XPM"
-    else:
-        basic_stats += f" • {player.get('experiencePerMinute', 0)} XPM"
+    # Turbo policy (Stage 3): do not show GPM/XPM in fallback when mode==TURBO
 
     if private_data_blocked:
         emoji = "🔒"
