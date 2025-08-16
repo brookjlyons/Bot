@@ -21,9 +21,9 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     Build the FULL match embed using the agreed contract and field order.
     (See Project Guidance Bible → GUIDELINES:EMBED_CONTRACT)
 
-    NOTE (change requested):
-      • Avatars are now rendered as a LARGE image block (embed['image']) rather than a thumbnail.
-        This mirrors the standalone Steam avatar webhook behavior and makes the avatar prominent.
+    NOTE (Phase 5):
+      • Avatars render both as a LARGE image (embed['image']) and as the author icon.
+      • Advice sections are trimmed to ≤3 lines here (and already pre-trimmed by formatter).
     """
     from datetime import datetime, timezone
 
@@ -66,13 +66,16 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
         "footer": {
             "text": f"Match ID: {result.get('matchId', '-')}"
         },
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        # author.name is part of our contract; icon_url added below if avatar present
+        "author": {"name": str(result.get("playerName", "Player"))},
     }
 
-    # 🖼️ Optional Steam avatar as LARGE image (requested change)
+    # 🖼️ Optional Steam avatar as LARGE image + author icon
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
         embed["image"] = {"url": avatar_url}
+        embed["author"]["icon_url"] = avatar_url
 
     return embed
 
@@ -81,8 +84,8 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     """
     Build the PENDING/SAFE fallback embed used when IMP is missing or private data blocks analysis.
 
-    NOTE (change requested):
-      • Avatars are now rendered as a LARGE image block (embed['image']) rather than a thumbnail.
+    NOTE (Phase 5):
+      • Avatars render both as a LARGE image and as the author icon.
     """
     from datetime import datetime, timezone
 
@@ -112,12 +115,14 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
         "footer": {
             "text": f"Match ID: {result.get('matchId', '-')}"
         },
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        "author": {"name": str(result.get("playerName", "Player"))},
     }
 
-    # 🖼️ Optional Steam avatar as LARGE image (requested change)
+    # 🖼️ Optional Steam avatar as LARGE image + author icon
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
         embed["image"] = {"url": avatar_url}
+        embed["author"]["icon_url"] = avatar_url
 
     return embed
