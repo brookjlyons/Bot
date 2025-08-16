@@ -27,6 +27,25 @@ __all__ = [
     "normalize_hero_name", "get_role", "get_baseline",
 ]
 
+
+def _first3_lines(value) -> list[str]:
+    """
+    Normalize any advice collection into a list[str] of at most 3 items.
+    - None → []
+    - str  → [str] (single line)
+    - list/tuple → cast each item to str, keep first 3
+    Ensures no None leaks into the embed pipeline.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value][:1]
+    if isinstance(value, (list, tuple)):
+        return [str(x) for x in list(value)[:3]]
+    # Unexpected type: coerce to single-line string
+    return [str(value)][:1]
+
+
 # --- Main match analysis entrypoint ---
 def format_match_embed(player: dict, match: dict, stats_block: dict, player_name: str = "Player") -> dict:
     game_mode_field = match.get("gameMode")
@@ -117,13 +136,15 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         "kda": f"{player.get('kills', 0)}/{player.get('deaths', 0)}/{player.get('assists', 0)}",
         "duration": match.get("durationSeconds", 0),
         "isVictory": is_victory,
-        "positives": advice.get("positives", [])[:3],
-        "negatives": advice.get("negatives", [])[:3],
-        "flags": advice.get("flags", [])[:3],
-        "tips": advice.get("tips", [])[:3],
+        # Enforce ≤3 lines and no None using helper (embed builder will also cap)
+        "positives": _first3_lines(advice.get("positives")),
+        "negatives": _first3_lines(advice.get("negatives")),
+        "flags": _first3_lines(advice.get("flags")),
+        "tips": _first3_lines(advice.get("tips")),
         "matchId": match.get("id"),
         "avatarUrl": avatar_url,  # ← optional
     }
+
 
 # --- Minimal fallback embed for IMP-missing matches ---
 def format_fallback_embed(player: dict, match: dict, player_name: str = "Player", private_data_blocked: bool = False) -> dict:
