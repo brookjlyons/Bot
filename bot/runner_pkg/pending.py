@@ -2,6 +2,8 @@
 
 import time
 import os
+from typing import Dict, Any
+
 from bot.config import CONFIG
 from bot.throttle import throttle
 from bot.stratz import fetch_full_match
@@ -12,18 +14,21 @@ from bot.formatter import (
 )
 from .webhook_client import (
     edit_discord_message,
-    strip_query,
     webhook_cooldown_active,
+    webhook_cooldown_remaining,
     is_hard_blocked,
 )
+
+# NEW: single source of truth for timestamp handling (Stage 1)
+from bot.runner_pkg.timeutil import now_iso, iso_to_epoch
+
 
 # --- Defaults & bounds ---
 # Historical default was 24h; we now honor an env override with a default of 12h.
 # Bounds protect against misconfiguration (30m–48h).
-PENDING_EXPIRY_SECONDS = 24 * 60 * 60  # legacy constant (fallback only)
-_MIN_EXPIRY = 30 * 60                  # 30 minutes
-_MAX_EXPIRY = 48 * 60 * 60            # 48 hours
-_DEFAULT_EXPIRY = 12 * 60 * 60        # 12 hours
+_MIN_EXPIRY = 30 * 60
+_MAX_EXPIRY = 48 * 60 * 60
+_DEFAULT_EXPIRY = 12 * 60 * 60
 
 
 def _env_expiry_seconds() -> int:
@@ -38,201 +43,227 @@ def _env_expiry_seconds() -> int:
     return _DEFAULT_EXPIRY
 
 
-def _entry_expiry_seconds(entry: dict) -> int:
+def _entry_expiry_seconds(entry: Dict[str, Any]) -> int:
     """
     Determine the expiry for a specific pending entry:
       1) entry['expiresAfterSec'] if present (bounded)
       2) env PENDING_EXPIRY_SEC (bounded)
-      3) legacy constant PENDING_EXPIRY_SECONDS (bounded to max/min for safety)
+      3) legacy default (bounded)
     """
+    v = entry.get("expiresAfterSec")
     try:
-        v = int(entry.get("expiresAfterSec"))
-        return max(_MIN_EXPIRY, min(_MAX_EXPIRY, v))
+        if isinstance(v, (int, float)):
+            return max(_MIN_EXPIRY, min(_MAX_EXPIRY, int(v)))
     except Exception:
         pass
-
-    # Env override
-    env_v = _env_expiry_seconds()
-    if env_v:
-        return env_v
-
-    # Legacy fallback (kept for backward compatibility)
-    try:
-        return max(_MIN_EXPIRY, min(_MAX_EXPIRY, int(PENDING_EXPIRY_SECONDS)))
-    except Exception:
-        return _DEFAULT_EXPIRY
+    return _env_expiry_seconds()
 
 
-def _expire_pending_entry(entry: dict) -> dict:
-    """Build an 'expired' version of the fallback embed from stored snapshot."""
+def _expire_pending_snapshot(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build an 'expired' version of the fallback embed from stored snapshot.
+
+    Behavior: preserves the original fallback minimal structure but changes
+    the status note to indicate expiry, leaving score=None and other fields intact.
+    """
     snap = entry.get("snapshot") or {}
     expired = dict(snap)
-    expired["emoji"] = "⌛"
-    expired["title"] = "(Expired — no IMP)"
-    expired["statusNote"] = "Expired — Stratz did not parse this match in time."
+    try:
+        # Mutate snapshot-safe fields; tolerate absence gracefully.
+        expired["statusNote"] = "Stats window expired — final analysis unavailable."
+    except Exception:
+        pass
     return build_fallback_embed(expired)
 
 
-def _normalize_pending_keys(pending_map: dict) -> None:
+def _normalize_pending_map(pending_map: Dict[str, Any]) -> None:
     """
-    One-time in-place migration to support multiple players per match:
-    - Legacy shape keyed by 'matchId' only → re-key to 'matchId:steamId' if steamId present.
-    - If postedAt is missing, initialize it to now() to avoid immediate expiry glitches.
-    Idempotent across runs.
+    In-place cleanup/migration:
+
+    - Drop non-dict values.
+    - Migrate legacy keys (matchId only) → composite "<matchId>:<steamId>" when both are present.
+    - Ensure postedAt is present as ISO string; accept legacy floats during migration.
     """
     if not isinstance(pending_map, dict):
         return
 
-    # Collect changes to avoid modifying while iterating
-    rekeys: list[tuple[str, str]] = []
-    init_times: list[str] = []
-    for k, entry in list(pending_map.items()):
-        # Initialize missing postedAt defensively
-        if isinstance(entry, dict) and not entry.get("postedAt"):
-            init_times.append(k)
+    to_delete = []
+    to_add: Dict[str, Dict[str, Any]] = {}
 
-        if ":" in str(k):
-            # Already composite key
+    # Pass 1: drop junk and prepare rekeys
+    for key, val in list(pending_map.items()):
+        if not isinstance(val, dict):
+            to_delete.append(key)
             continue
 
-        # Try to build composite key using stored steamId
-        steam_id = None
-        try:
-            steam_id = int((entry or {}).get("steamId"))
-        except Exception:
-            steam_id = None
-        if steam_id:
-            new_key = f"{k}:{steam_id}"
-            # Only re-key if target doesn't already exist
-            if new_key not in pending_map:
-                rekeys.append((str(k), new_key))
+        steam_id = val.get("steamId")
+        match_id = val.get("matchId")
 
-    # Apply postedAt inits
-    now = time.time()
-    for k in init_times:
-        try:
-            if isinstance(pending_map.get(k), dict) and not pending_map[k].get("postedAt"):
-                pending_map[k]["postedAt"] = now
-        except Exception:
-            continue
+        # Ensure postedAt (ISO). Accept existing ISO or legacy epoch numbers.
+        if "postedAt" not in val:
+            # Prefer any transitional field that may exist
+            if "postedAtIso" in val and val["postedAtIso"]:
+                val["postedAt"] = str(val["postedAtIso"])
+            else:
+                val["postedAt"] = now_iso()
 
-    # Apply rekeys
-    for old, new in rekeys:
-        try:
-            pending_map[new] = pending_map.pop(old)
-        except Exception:
-            # If anything odd happens, leave the old key in place
-            continue
+        # Migrate legacy key if needed and we have the components
+        if ":" not in str(key) and steam_id is not None and match_id is not None:
+            try:
+                composite = f"{int(match_id)}:{int(steam_id)}"
+                # Don't overwrite an existing proper key
+                if composite != key and composite not in pending_map and composite not in to_add:
+                    to_add[composite] = val
+                    to_delete.append(key)
+            except Exception:
+                # If conversion fails, keep legacy key to avoid data loss
+                pass
+
+    # Apply deletions and additions
+    for k in to_delete:
+        pending_map.pop(k, None)
+    for k, v in to_add.items():
+        pending_map[k] = v
 
 
-def process_pending_upgrades_and_expiry(state: dict) -> bool:
+def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
     """
     Pass 0: try to upgrade or expire any pending fallback messages.
-    Returns False to signal the run should end early (e.g., cooldown/hard-block).
+
+    Returns:
+        False → signal the run should end early (e.g., Cloudflare hard block or webhook cooldown).
+        True  → continue with player processing.
     """
+    # Early global aborts
     if is_hard_blocked():
+        print("🧯 Ending run early due to Cloudflare hard block.")
+        return False
+    if webhook_cooldown_active():
+        print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
         return False
 
-    pending_map = state.setdefault("pending", {})
-    if not pending_map:
+    pending_map = (state.get("pending") or {})
+    if not isinstance(pending_map, dict):
+        # Ensure correct shape for subsequent runs
+        state["pending"] = {}
         return True
 
-    # 🔧 Migrate legacy keys ('matchId' only) → 'matchId:steamId' so
-    # multiple players can share a match without overwriting each other.
-    _normalize_pending_keys(pending_map)
+    # One-time normalization/migration
+    _normalize_pending_map(pending_map)
 
-    now = time.time()
-    items = list(pending_map.items())
+    # Work on a snapshot of keys to be robust against in-loop mutations
+    keys = list(pending_map.keys())
+    now_epoch = time.time()
 
-    for key, entry in items:
-        if is_hard_blocked() or webhook_cooldown_active():
-            return False
-
-        # Key may be either "matchId:steamId" (preferred) or legacy "matchId"
-        match_id = None
-        steam_id_from_key = None
-        try:
-            if ":" in str(key):
-                a, b = str(key).split(":", 1)
-                match_id = int(a)
-                steam_id_from_key = int(b) if b.isdigit() else None
-            else:
-                match_id = int(str(key))
-        except Exception:
-            # Bad key — drop it
+    for key in keys:
+        entry = pending_map.get(key)
+        if not isinstance(entry, dict):
+            # Clean up unexpected shapes
             pending_map.pop(key, None)
             continue
 
-        steam_id = entry.get("steamId")
-        if steam_id_from_key and steam_id != steam_id_from_key:
-            # Trust the stored entry but keep awareness; no-op beyond this
-            pass
-
-        webhook_base = entry.get("webhookBase") or CONFIG.get("webhook_url")
-        message_id = entry.get("messageId")
-
-        # Expiry check (per-entry or env-driven)
-        posted_at = float(entry.get("postedAt") or 0)
-        expiry_seconds = _entry_expiry_seconds(entry)
-        if posted_at and (now - posted_at) >= expiry_seconds:
-            print(f"⏳ Pending match {match_id} (steam {steam_id}) expired — marking message and removing from state.")
-            try:
-                if CONFIG.get("webhook_enabled") and webhook_base and message_id:
-                    expired_embed = _expire_pending_entry(entry)
-                    ok = edit_discord_message(message_id, expired_embed, webhook_base, exact_base=True)  # ✅
-                    if not ok:
-                        if is_hard_blocked() or webhook_cooldown_active():
-                            return False
-                        print(f"⚠️ Failed to mark expired for match {match_id} (steam {steam_id}) — will retry next run")
-                        continue
-                # Remove from pending after attempting expiry
-                pending_map.pop(key, None)
-            except Exception as e:
-                print(f"❌ Error expiring pending match {match_id} (steam {steam_id}): {e}")
-                pending_map.pop(key, None)
-            continue
-
-        # Try to upgrade — re-fetch match and check IMP
-        throttle()
-        full = fetch_full_match(match_id)
-        if not full:
-            # transient miss — skip this one for now
-            time.sleep(0.5)
-            continue
-        if isinstance(full, dict) and full.get("error") == "quota_exceeded":
-            print("🛑 Quota exceeded during pending upgrade pass — aborting early.")
+        # Global early aborts (checked frequently to avoid useless work)
+        if is_hard_blocked():
+            print("🧯 Ending run early due to Cloudflare hard block.")
+            return False
+        if webhook_cooldown_active():
+            print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
             return False
 
-        player_data = None
-        for p in (full.get("players") or []):
-            if p.get("steamAccountId") == steam_id:
-                player_data = p
-                break
-        if not player_data:
+        # Resolve identity
+        steam_id = entry.get("steamId")
+        match_id = entry.get("matchId")
+        message_id = entry.get("messageId")
+        base_url = entry.get("webhookBase") or CONFIG.get("webhook_url")
+
+        # Basic validation
+        if not (steam_id and match_id and message_id and base_url):
+            # If critical data is missing, drop this entry to prevent permanent dangling state.
+            pending_map.pop(key, None)
+            continue
+
+        # Expiry logic (ISO/epoch tolerant)
+        posted_epoch = iso_to_epoch(entry.get("postedAt"))
+        expiry_sec = _entry_expiry_seconds(entry)
+        elapsed = max(0.0, now_epoch - max(0.0, posted_epoch))
+
+        if elapsed >= expiry_sec:
+            # Expire in place
+            try:
+                embed = _expire_pending_snapshot(entry)
+                ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                if ok:
+                    print(f"🗑️ Expired fallback for match {match_id} (steam {steam_id}) after {int(elapsed)}s")
+                    pending_map.pop(key, None)
+                else:
+                    # Respect global abort signals if they flipped during edit attempt
+                    if is_hard_blocked():
+                        print("🧯 Ending run early due to Cloudflare hard block.")
+                        return False
+                    if webhook_cooldown_active():
+                        print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
+                        return False
+                    print(f"⚠️ Failed to mark expired for match {match_id} (steam {steam_id}) — will retry later")
+            except Exception as e:
+                print(f"❌ Error expiring fallback for match {match_id} (steam {steam_id}): {e}")
+            # Be gentle between webhook edits
             time.sleep(0.5)
             continue
 
-        if player_data.get("imp") is not None and CONFIG.get("webhook_enabled") and webhook_base and message_id:
+        # Try to upgrade to full embed if stats are ready
+        try:
+            throttle()  # pace Stratz
+            data = fetch_full_match(int(match_id))
+            if not data or isinstance(data, dict) and data.get("error") == "quota_exceeded":
+                # Nothing to do now; try later
+                time.sleep(0.2)
+                continue
+
+            # Locate player slice
+            players = (data.get("players") or []) if isinstance(data, dict) else []
+            player = None
             try:
-                # Build full embed and edit in place
-                snap = entry.get("snapshot") or {}
-                display_name = snap.get("playerName", "Player")
-                result = format_match_embed(player_data, full, player_data.get("stats", {}), display_name)
-                embed = build_discord_embed(result)
-                ok = edit_discord_message(message_id, embed, webhook_base, exact_base=True)  # ✅
-                if ok:
-                    print(f"🔁 Upgraded fallback → full embed for match {match_id} (steam {steam_id})")
-                    state[str(steam_id)] = match_id
-                    pending_map.pop(key, None)
-                else:
-                    if is_hard_blocked() or webhook_cooldown_active():
-                        return False
-                    print(f"⚠️ Failed to upgrade (edit) for match {match_id} (steam {steam_id}) — will retry later")
-            except Exception as e:
-                print(f"❌ Error building/upgrading embed for match {match_id} (steam {steam_id}): {e}")
-                # Leave pending for retry
+                sid_int = int(steam_id)
+            except Exception:
+                sid_int = steam_id
+            for p in players:
+                if p.get("steamAccountId") == sid_int:
+                    player = p
+                    break
+
+            if not player:
+                # Can't upgrade without the player slice; try next time
+                continue
+
+            # If IMP is still missing, keep waiting
+            if player.get("imp") is None:
+                continue
+
+            # Build full embed
+            embed_result = format_match_embed(player, data, player.get("stats", {}) or {}, player.get("name", "") or "")
+            embed = build_discord_embed(embed_result)
+
+            ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+            if ok:
+                print(f"🔁 Upgraded fallback → full embed for match {match_id} (steam {steam_id})")
+                # Record last posted match for the player and clear pending
+                state[str(steam_id)] = match_id
+                pending_map.pop(key, None)
+            else:
+                if is_hard_blocked():
+                    print("🧯 Ending run early due to Cloudflare hard block.")
+                    return False
+                if webhook_cooldown_active():
+                    print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
+                    return False
+                print(f"⚠️ Failed to upgrade (edit) for match {match_id} (steam {steam_id}) — will retry later")
+
+        except Exception as e:
+            print(f"❌ Error building/upgrading embed for match {match_id} (steam {steam_id}): {e}")
 
         # Pace between items to be gentle on Discord + Stratz
         time.sleep(0.5)
 
+    # Ensure normalized map is written back
+    state["pending"] = pending_map
     return True
