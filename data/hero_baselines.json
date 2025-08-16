@@ -1,0 +1,1136 @@
+{
+  "abaddon": {
+    "kills": 5,
+    "deaths": 6,
+    "assists": 16,
+    "gpm": 460,
+    "xpm": 674,
+    "last_hits": 176,
+    "denies": 6
+  },
+  "alchemist": {
+    "kills": 5,
+    "deaths": 7,
+    "assists": 12,
+    "gpm": 656,
+    "xpm": 729,
+    "last_hits": 274,
+    "denies": 4
+  },
+  "ancient_apparition": {
+    "kills": 5,
+    "deaths": 9,
+    "assists": 20,
+    "gpm": 371,
+    "xpm": 563,
+    "last_hits": 81,
+    "denies": 3
+  },
+  "antimage": {
+    "kills": 9,
+    "deaths": 5,
+    "assists": 9,
+    "gpm": 651,
+    "xpm": 916,
+    "last_hits": 364,
+    "denies": 12
+  },
+  "arc_warden": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 11,
+    "gpm": 671,
+    "xpm": 805,
+    "last_hits": 289,
+    "denies": 9
+  },
+  "axe": {
+    "kills": 11,
+    "deaths": 9,
+    "assists": 14,
+    "gpm": 510,
+    "xpm": 712,
+    "last_hits": 205,
+    "denies": 7
+  },
+  "bane": {
+    "kills": 4,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 327,
+    "xpm": 540,
+    "last_hits": 50,
+    "denies": 4
+  },
+  "batrider": {
+    "kills": 8,
+    "deaths": 9,
+    "assists": 15,
+    "gpm": 445,
+    "xpm": 652,
+    "last_hits": 147,
+    "denies": 4
+  },
+  "beastmaster": {
+    "kills": 8,
+    "deaths": 8,
+    "assists": 13,
+    "gpm": 556,
+    "xpm": 739,
+    "last_hits": 253,
+    "denies": 7
+  },
+  "bloodseeker": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 14,
+    "gpm": 566,
+    "xpm": 793,
+    "last_hits": 273,
+    "denies": 12
+  },
+  "bounty_hunter": {
+    "kills": 5,
+    "deaths": 9,
+    "assists": 19,
+    "gpm": 476,
+    "xpm": 579,
+    "last_hits": 75,
+    "denies": 2
+  },
+  "brewmaster": {
+    "kills": 7,
+    "deaths": 7,
+    "assists": 15,
+    "gpm": 503,
+    "xpm": 725,
+    "last_hits": 214,
+    "denies": 8
+  },
+  "bristleback": {
+    "kills": 6,
+    "deaths": 9,
+    "assists": 14,
+    "gpm": 502,
+    "xpm": 696,
+    "last_hits": 233,
+    "denies": 7
+  },
+  "broodmother": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 13,
+    "gpm": 630,
+    "xpm": 839,
+    "last_hits": 288,
+    "denies": 8
+  },
+  "centaur": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 18,
+    "gpm": 492,
+    "xpm": 683,
+    "last_hits": 227,
+    "denies": 9
+  },
+  "chaos_knight": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 11,
+    "gpm": 529,
+    "xpm": 721,
+    "last_hits": 227,
+    "denies": 9
+  },
+  "chen": {
+    "kills": 2,
+    "deaths": 7,
+    "assists": 18,
+    "gpm": 350,
+    "xpm": 463,
+    "last_hits": 88,
+    "denies": 3
+  },
+  "clinkz": {
+    "kills": 10,
+    "deaths": 8,
+    "assists": 13,
+    "gpm": 553,
+    "xpm": 758,
+    "last_hits": 225,
+    "denies": 13
+  },
+  "rattletrap": {
+    "kills": 5,
+    "deaths": 10,
+    "assists": 20,
+    "gpm": 367,
+    "xpm": 555,
+    "last_hits": 75,
+    "denies": 3
+  },
+  "crystal_maiden": {
+    "kills": 4,
+    "deaths": 9,
+    "assists": 19,
+    "gpm": 356,
+    "xpm": 553,
+    "last_hits": 81,
+    "denies": 2
+  },
+  "dark_seer": {
+    "kills": 5,
+    "deaths": 7,
+    "assists": 18,
+    "gpm": 482,
+    "xpm": 648,
+    "last_hits": 220,
+    "denies": 3
+  },
+  "dark_willow": {
+    "kills": 7,
+    "deaths": 9,
+    "assists": 18,
+    "gpm": 376,
+    "xpm": 591,
+    "last_hits": 78,
+    "denies": 4
+  },
+  "dawnbreaker": {
+    "kills": 7,
+    "deaths": 7,
+    "assists": 18,
+    "gpm": 526,
+    "xpm": 725,
+    "last_hits": 245,
+    "denies": 7
+  },
+  "dazzle": {
+    "kills": 4,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 361,
+    "xpm": 573,
+    "last_hits": 93,
+    "denies": 4
+  },
+  "death_prophet": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 13,
+    "gpm": 540,
+    "xpm": 728,
+    "last_hits": 240,
+    "denies": 6
+  },
+  "disruptor": {
+    "kills": 3,
+    "deaths": 9,
+    "assists": 24,
+    "gpm": 334,
+    "xpm": 540,
+    "last_hits": 47,
+    "denies": 2
+  },
+  "doom_bringer": {
+    "kills": 7,
+    "deaths": 8,
+    "assists": 13,
+    "gpm": 591,
+    "xpm": 734,
+    "last_hits": 229,
+    "denies": 7
+  },
+  "dragon_knight": {
+    "kills": 8,
+    "deaths": 6,
+    "assists": 12,
+    "gpm": 561,
+    "xpm": 753,
+    "last_hits": 271,
+    "denies": 10
+  },
+  "drow_ranger": {
+    "kills": 9,
+    "deaths": 6,
+    "assists": 11,
+    "gpm": 611,
+    "xpm": 791,
+    "last_hits": 328,
+    "denies": 13
+  },
+  "earth_spirit": {
+    "kills": 7,
+    "deaths": 9,
+    "assists": 19,
+    "gpm": 417,
+    "xpm": 641,
+    "last_hits": 120,
+    "denies": 4
+  },
+  "earthshaker": {
+    "kills": 7,
+    "deaths": 8,
+    "assists": 17,
+    "gpm": 485,
+    "xpm": 690,
+    "last_hits": 199,
+    "denies": 5
+  },
+  "elder_titan": {
+    "kills": 6,
+    "deaths": 8,
+    "assists": 17,
+    "gpm": 402,
+    "xpm": 621,
+    "last_hits": 111,
+    "denies": 5
+  },
+  "ember_spirit": {
+    "kills": 10,
+    "deaths": 7,
+    "assists": 16,
+    "gpm": 548,
+    "xpm": 787,
+    "last_hits": 242,
+    "denies": 7
+  },
+  "enchantress": {
+    "kills": 6,
+    "deaths": 7,
+    "assists": 13,
+    "gpm": 389,
+    "xpm": 618,
+    "last_hits": 107,
+    "denies": 5
+  },
+  "enigma": {
+    "kills": 4,
+    "deaths": 9,
+    "assists": 18,
+    "gpm": 428,
+    "xpm": 582,
+    "last_hits": 155,
+    "denies": 5
+  },
+  "faceless_void": {
+    "kills": 8,
+    "deaths": 6,
+    "assists": 12,
+    "gpm": 571,
+    "xpm": 804,
+    "last_hits": 291,
+    "denies": 10
+  },
+  "grimstroke": {
+    "kills": 4,
+    "deaths": 9,
+    "assists": 21,
+    "gpm": 360,
+    "xpm": 553,
+    "last_hits": 81,
+    "denies": 2
+  },
+  "gyrocopter": {
+    "kills": 8,
+    "deaths": 8,
+    "assists": 13,
+    "gpm": 561,
+    "xpm": 740,
+    "last_hits": 281,
+    "denies": 8
+  },
+  "hoodwink": {
+    "kills": 6,
+    "deaths": 7,
+    "assists": 18,
+    "gpm": 410,
+    "xpm": 621,
+    "last_hits": 134,
+    "denies": 4
+  },
+  "huskar": {
+    "kills": 10,
+    "deaths": 9,
+    "assists": 9,
+    "gpm": 521,
+    "xpm": 703,
+    "last_hits": 200,
+    "denies": 14
+  },
+  "invoker": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 15,
+    "gpm": 510,
+    "xpm": 707,
+    "last_hits": 181,
+    "denies": 8
+  },
+  "wisp": {
+    "kills": 2,
+    "deaths": 7,
+    "assists": 20,
+    "gpm": 310,
+    "xpm": 526,
+    "last_hits": 44,
+    "denies": 4
+  },
+  "jakiro": {
+    "kills": 4,
+    "deaths": 9,
+    "assists": 18,
+    "gpm": 377,
+    "xpm": 558,
+    "last_hits": 106,
+    "denies": 3
+  },
+  "juggernaut": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 10,
+    "gpm": 642,
+    "xpm": 860,
+    "last_hits": 344,
+    "denies": 11
+  },
+  "keeper_of_the_light": {
+    "kills": 7,
+    "deaths": 6,
+    "assists": 16,
+    "gpm": 503,
+    "xpm": 691,
+    "last_hits": 210,
+    "denies": 2
+  },
+  "kez": {
+    "kills": 11,
+    "deaths": 8,
+    "assists": 11,
+    "gpm": 576,
+    "xpm": 806,
+    "last_hits": 265,
+    "denies": 11
+  },
+  "kunkka": {
+    "kills": 7,
+    "deaths": 7,
+    "assists": 17,
+    "gpm": 557,
+    "xpm": 753,
+    "last_hits": 286,
+    "denies": 6
+  },
+  "legion_commander": {
+    "kills": 9,
+    "deaths": 8,
+    "assists": 14,
+    "gpm": 505,
+    "xpm": 702,
+    "last_hits": 196,
+    "denies": 9
+  },
+  "leshrac": {
+    "kills": 11,
+    "deaths": 8,
+    "assists": 14,
+    "gpm": 550,
+    "xpm": 763,
+    "last_hits": 236,
+    "denies": 6
+  },
+  "lich": {
+    "kills": 5,
+    "deaths": 10,
+    "assists": 20,
+    "gpm": 369,
+    "xpm": 558,
+    "last_hits": 75,
+    "denies": 3
+  },
+  "life_stealer": {
+    "kills": 8,
+    "deaths": 5,
+    "assists": 12,
+    "gpm": 606,
+    "xpm": 844,
+    "last_hits": 310,
+    "denies": 21
+  },
+  "lina": {
+    "kills": 9,
+    "deaths": 8,
+    "assists": 11,
+    "gpm": 571,
+    "xpm": 801,
+    "last_hits": 284,
+    "denies": 7
+  },
+  "lion": {
+    "kills": 6,
+    "deaths": 10,
+    "assists": 16,
+    "gpm": 352,
+    "xpm": 570,
+    "last_hits": 60,
+    "denies": 3
+  },
+  "lone_druid": {
+    "kills": 7,
+    "deaths": 5,
+    "assists": 10,
+    "gpm": 557,
+    "xpm": 690,
+    "last_hits": 257,
+    "denies": 11
+  },
+  "luna": {
+    "kills": 8,
+    "deaths": 6,
+    "assists": 11,
+    "gpm": 660,
+    "xpm": 842,
+    "last_hits": 388,
+    "denies": 8
+  },
+  "lycan": {
+    "kills": 7,
+    "deaths": 5,
+    "assists": 14,
+    "gpm": 581,
+    "xpm": 706,
+    "last_hits": 267,
+    "denies": 9
+  },
+  "magnataur": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 454,
+    "xpm": 671,
+    "last_hits": 175,
+    "denies": 6
+  },
+  "marci": {
+    "kills": 9,
+    "deaths": 9,
+    "assists": 14,
+    "gpm": 458,
+    "xpm": 642,
+    "last_hits": 148,
+    "denies": 6
+  },
+  "mars": {
+    "kills": 6,
+    "deaths": 7,
+    "assists": 17,
+    "gpm": 486,
+    "xpm": 681,
+    "last_hits": 208,
+    "denies": 9
+  },
+  "medusa": {
+    "kills": 6,
+    "deaths": 4,
+    "assists": 12,
+    "gpm": 657,
+    "xpm": 860,
+    "last_hits": 420,
+    "denies": 10
+  },
+  "meepo": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 8,
+    "gpm": 647,
+    "xpm": 907,
+    "last_hits": 328,
+    "denies": 7
+  },
+  "mirana": {
+    "kills": 5,
+    "deaths": 7,
+    "assists": 19,
+    "gpm": 403,
+    "xpm": 604,
+    "last_hits": 128,
+    "denies": 3
+  },
+  "monkey_king": {
+    "kills": 9,
+    "deaths": 8,
+    "assists": 12,
+    "gpm": 545,
+    "xpm": 751,
+    "last_hits": 256,
+    "denies": 12
+  },
+  "morphling": {
+    "kills": 8,
+    "deaths": 5,
+    "assists": 8,
+    "gpm": 604,
+    "xpm": 807,
+    "last_hits": 322,
+    "denies": 12
+  },
+  "muerta": {
+    "kills": 8,
+    "deaths": 7,
+    "assists": 13,
+    "gpm": 556,
+    "xpm": 746,
+    "last_hits": 283,
+    "denies": 11
+  },
+  "naga_siren": {
+    "kills": 4,
+    "deaths": 6,
+    "assists": 15,
+    "gpm": 493,
+    "xpm": 635,
+    "last_hits": 253,
+    "denies": 3
+  },
+  "furion": {
+    "kills": 10,
+    "deaths": 8,
+    "assists": 18,
+    "gpm": 630,
+    "xpm": 771,
+    "last_hits": 314,
+    "denies": 7
+  },
+  "necrolyte": {
+    "kills": 10,
+    "deaths": 7,
+    "assists": 12,
+    "gpm": 593,
+    "xpm": 801,
+    "last_hits": 294,
+    "denies": 9
+  },
+  "night_stalker": {
+    "kills": 8,
+    "deaths": 7,
+    "assists": 13,
+    "gpm": 486,
+    "xpm": 697,
+    "last_hits": 189,
+    "denies": 11
+  },
+  "nyx_assassin": {
+    "kills": 9,
+    "deaths": 9,
+    "assists": 16,
+    "gpm": 395,
+    "xpm": 643,
+    "last_hits": 79,
+    "denies": 4
+  },
+  "ogre_magi": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 18,
+    "gpm": 455,
+    "xpm": 637,
+    "last_hits": 112,
+    "denies": 5
+  },
+  "omniknight": {
+    "kills": 6,
+    "deaths": 7,
+    "assists": 14,
+    "gpm": 451,
+    "xpm": 646,
+    "last_hits": 167,
+    "denies": 8
+  },
+  "oracle": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 335,
+    "xpm": 516,
+    "last_hits": 53,
+    "denies": 2
+  },
+  "obsidian_destroyer": {
+    "kills": 11,
+    "deaths": 6,
+    "assists": 9,
+    "gpm": 563,
+    "xpm": 794,
+    "last_hits": 245,
+    "denies": 15
+  },
+  "pangolier": {
+    "kills": 8,
+    "deaths": 7,
+    "assists": 15,
+    "gpm": 529,
+    "xpm": 751,
+    "last_hits": 248,
+    "denies": 8
+  },
+  "phantom_assassin": {
+    "kills": 10,
+    "deaths": 7,
+    "assists": 10,
+    "gpm": 608,
+    "xpm": 840,
+    "last_hits": 319,
+    "denies": 8
+  },
+  "phantom_lancer": {
+    "kills": 9,
+    "deaths": 5,
+    "assists": 9,
+    "gpm": 615,
+    "xpm": 845,
+    "last_hits": 332,
+    "denies": 8
+  },
+  "phoenix": {
+    "kills": 7,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 439,
+    "xpm": 640,
+    "last_hits": 146,
+    "denies": 3
+  },
+  "primal_beast": {
+    "kills": 7,
+    "deaths": 8,
+    "assists": 17,
+    "gpm": 484,
+    "xpm": 687,
+    "last_hits": 197,
+    "denies": 6
+  },
+  "puck": {
+    "kills": 9,
+    "deaths": 6,
+    "assists": 14,
+    "gpm": 568,
+    "xpm": 816,
+    "last_hits": 264,
+    "denies": 6
+  },
+  "pudge": {
+    "kills": 7,
+    "deaths": 9,
+    "assists": 17,
+    "gpm": 416,
+    "xpm": 619,
+    "last_hits": 121,
+    "denies": 4
+  },
+  "pugna": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 17,
+    "gpm": 401,
+    "xpm": 576,
+    "last_hits": 107,
+    "denies": 3
+  },
+  "queenofpain": {
+    "kills": 11,
+    "deaths": 7,
+    "assists": 15,
+    "gpm": 544,
+    "xpm": 785,
+    "last_hits": 230,
+    "denies": 10
+  },
+  "razor": {
+    "kills": 9,
+    "deaths": 8,
+    "assists": 14,
+    "gpm": 552,
+    "xpm": 756,
+    "last_hits": 264,
+    "denies": 12
+  },
+  "riki": {
+    "kills": 10,
+    "deaths": 8,
+    "assists": 14,
+    "gpm": 519,
+    "xpm": 786,
+    "last_hits": 216,
+    "denies": 7
+  },
+  "ringmaster": {
+    "kills": 4,
+    "deaths": 8,
+    "assists": 20,
+    "gpm": 337,
+    "xpm": 531,
+    "last_hits": 62,
+    "denies": 2
+  },
+  "rubick": {
+    "kills": 6,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 417,
+    "xpm": 615,
+    "last_hits": 128,
+    "denies": 4
+  },
+  "sand_king": {
+    "kills": 7,
+    "deaths": 9,
+    "assists": 16,
+    "gpm": 497,
+    "xpm": 703,
+    "last_hits": 226,
+    "denies": 4
+  },
+  "shadow_demon": {
+    "kills": 5,
+    "deaths": 9,
+    "assists": 19,
+    "gpm": 364,
+    "xpm": 554,
+    "last_hits": 79,
+    "denies": 2
+  },
+  "nevermore": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 11,
+    "gpm": 633,
+    "xpm": 857,
+    "last_hits": 331,
+    "denies": 11
+  },
+  "shadow_shaman": {
+    "kills": 3,
+    "deaths": 9,
+    "assists": 19,
+    "gpm": 358,
+    "xpm": 537,
+    "last_hits": 75,
+    "denies": 3
+  },
+  "silencer": {
+    "kills": 5,
+    "deaths": 9,
+    "assists": 21,
+    "gpm": 376,
+    "xpm": 557,
+    "last_hits": 83,
+    "denies": 4
+  },
+  "skywrath_mage": {
+    "kills": 7,
+    "deaths": 8,
+    "assists": 17,
+    "gpm": 372,
+    "xpm": 588,
+    "last_hits": 73,
+    "denies": 3
+  },
+  "slardar": {
+    "kills": 8,
+    "deaths": 8,
+    "assists": 14,
+    "gpm": 490,
+    "xpm": 709,
+    "last_hits": 196,
+    "denies": 9
+  },
+  "slark": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 12,
+    "gpm": 534,
+    "xpm": 768,
+    "last_hits": 237,
+    "denies": 10
+  },
+  "snapfire": {
+    "kills": 7,
+    "deaths": 8,
+    "assists": 17,
+    "gpm": 422,
+    "xpm": 606,
+    "last_hits": 139,
+    "denies": 5
+  },
+  "sniper": {
+    "kills": 10,
+    "deaths": 7,
+    "assists": 15,
+    "gpm": 540,
+    "xpm": 688,
+    "last_hits": 246,
+    "denies": 11
+  },
+  "spectre": {
+    "kills": 11,
+    "deaths": 6,
+    "assists": 16,
+    "gpm": 582,
+    "xpm": 862,
+    "last_hits": 259,
+    "denies": 8
+  },
+  "spirit_breaker": {
+    "kills": 6,
+    "deaths": 9,
+    "assists": 21,
+    "gpm": 413,
+    "xpm": 679,
+    "last_hits": 111,
+    "denies": 3
+  },
+  "storm_spirit": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 13,
+    "gpm": 564,
+    "xpm": 819,
+    "last_hits": 268,
+    "denies": 7
+  },
+  "sven": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 9,
+    "gpm": 667,
+    "xpm": 919,
+    "last_hits": 382,
+    "denies": 8
+  },
+  "techies": {
+    "kills": 7,
+    "deaths": 11,
+    "assists": 17,
+    "gpm": 429,
+    "xpm": 590,
+    "last_hits": 138,
+    "denies": 1
+  },
+  "templar_assassin": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 10,
+    "gpm": 649,
+    "xpm": 881,
+    "last_hits": 343,
+    "denies": 13
+  },
+  "terrorblade": {
+    "kills": 8,
+    "deaths": 6,
+    "assists": 9,
+    "gpm": 600,
+    "xpm": 782,
+    "last_hits": 322,
+    "denies": 9
+  },
+  "tidehunter": {
+    "kills": 5,
+    "deaths": 7,
+    "assists": 18,
+    "gpm": 486,
+    "xpm": 682,
+    "last_hits": 218,
+    "denies": 6
+  },
+  "shredder": {
+    "kills": 10,
+    "deaths": 8,
+    "assists": 14,
+    "gpm": 535,
+    "xpm": 756,
+    "last_hits": 231,
+    "denies": 6
+  },
+  "tinker": {
+    "kills": 8,
+    "deaths": 5,
+    "assists": 13,
+    "gpm": 635,
+    "xpm": 916,
+    "last_hits": 362,
+    "denies": 5
+  },
+  "tiny": {
+    "kills": 7,
+    "deaths": 7,
+    "assists": 16,
+    "gpm": 487,
+    "xpm": 689,
+    "last_hits": 201,
+    "denies": 5
+  },
+  "treant": {
+    "kills": 3,
+    "deaths": 8,
+    "assists": 21,
+    "gpm": 349,
+    "xpm": 553,
+    "last_hits": 74,
+    "denies": 3
+  },
+  "troll_warlord": {
+    "kills": 8,
+    "deaths": 7,
+    "assists": 10,
+    "gpm": 612,
+    "xpm": 829,
+    "last_hits": 322,
+    "denies": 11
+  },
+  "tusk": {
+    "kills": 5,
+    "deaths": 9,
+    "assists": 19,
+    "gpm": 363,
+    "xpm": 578,
+    "last_hits": 77,
+    "denies": 3
+  },
+  "abyssal_underlord": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 18,
+    "gpm": 494,
+    "xpm": 670,
+    "last_hits": 231,
+    "denies": 8
+  },
+  "undying": {
+    "kills": 7,
+    "deaths": 9,
+    "assists": 20,
+    "gpm": 436,
+    "xpm": 629,
+    "last_hits": 140,
+    "denies": 5
+  },
+  "ursa": {
+    "kills": 12,
+    "deaths": 8,
+    "assists": 10,
+    "gpm": 536,
+    "xpm": 794,
+    "last_hits": 242,
+    "denies": 6
+  },
+  "vengefulspirit": {
+    "kills": 5,
+    "deaths": 10,
+    "assists": 19,
+    "gpm": 382,
+    "xpm": 667,
+    "last_hits": 100,
+    "denies": 5
+  },
+  "venomancer": {
+    "kills": 6,
+    "deaths": 10,
+    "assists": 21,
+    "gpm": 428,
+    "xpm": 614,
+    "last_hits": 149,
+    "denies": 2
+  },
+  "viper": {
+    "kills": 11,
+    "deaths": 10,
+    "assists": 14,
+    "gpm": 486,
+    "xpm": 715,
+    "last_hits": 185,
+    "denies": 7
+  },
+  "visage": {
+    "kills": 9,
+    "deaths": 8,
+    "assists": 13,
+    "gpm": 449,
+    "xpm": 639,
+    "last_hits": 137,
+    "denies": 6
+  },
+  "void_spirit": {
+    "kills": 10,
+    "deaths": 6,
+    "assists": 15,
+    "gpm": 479,
+    "xpm": 757,
+    "last_hits": 188,
+    "denies": 9
+  },
+  "warlock": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 19,
+    "gpm": 419,
+    "xpm": 560,
+    "last_hits": 146,
+    "denies": 2
+  },
+  "weaver": {
+    "kills": 10,
+    "deaths": 7,
+    "assists": 13,
+    "gpm": 517,
+    "xpm": 818,
+    "last_hits": 222,
+    "denies": 5
+  },
+  "windrunner": {
+    "kills": 11,
+    "deaths": 8,
+    "assists": 13,
+    "gpm": 469,
+    "xpm": 733,
+    "last_hits": 167,
+    "denies": 5
+  },
+  "winter_wyvern": {
+    "kills": 5,
+    "deaths": 8,
+    "assists": 18,
+    "gpm": 365,
+    "xpm": 604,
+    "last_hits": 96,
+    "denies": 2
+  },
+  "witch_doctor": {
+    "kills": 9,
+    "deaths": 10,
+    "assists": 18,
+    "gpm": 396,
+    "xpm": 625,
+    "last_hits": 75,
+    "denies": 3
+  },
+  "skeleton_king": {
+    "kills": 9,
+    "deaths": 7,
+    "assists": 15,
+    "gpm": 525,
+    "xpm": 787,
+    "last_hits": 235,
+    "denies": 6
+  },
+  "zuus": {
+    "kills": 9,
+    "deaths": 8,
+    "assists": 21,
+    "gpm": 453,
+    "xpm": 682,
+    "last_hits": 157,
+    "denies": 3
+  }
+}

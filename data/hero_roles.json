@@ -1,0 +1,418 @@
+{
+  "abaddon": [
+    "offlane",
+    "support"
+  ],
+  "alchemist": [
+    "carry"
+  ],
+  "ancient_apparition": [
+    "hard_support"
+  ],
+  "antimage": [
+    "carry"
+  ],
+  "arc_warden": [
+    "carry"
+  ],
+  "axe": [
+    "offlane"
+  ],
+  "bane": [
+    "hard_support"
+  ],
+  "batrider": [
+    "offlane",
+    "mid"
+  ],
+  "beastmaster": [
+    "offlane"
+  ],
+  "bloodseeker": [
+    "carry",
+    "mid"
+  ],
+  "bounty_hunter": [
+    "roamer",
+    "soft_support"
+  ],
+  "brewmaster": [
+    "offlane"
+  ],
+  "bristleback": [
+    "offlane"
+  ],
+  "broodmother": [
+    "offlane"
+  ],
+  "centaur": [
+    "offlane"
+  ],
+  "chaos_knight": [
+    "carry"
+  ],
+  "chen": [
+    "hard_support",
+    "jungler"
+  ],
+  "clinkz": [
+    "carry"
+  ],
+  "rattletrap": [
+    "offlane",
+    "soft_support"
+  ],
+  "crystal_maiden": [
+    "hard_support"
+  ],
+  "dark_seer": [
+    "offlane"
+  ],
+  "dark_willow": [
+    "soft_support"
+  ],
+  "dawnbreaker": [
+    "offlane",
+    "support"
+  ],
+  "dazzle": [
+    "hard_support"
+  ],
+  "death_prophet": [
+    "mid",
+    "offlane"
+  ],
+  "disruptor": [
+    "hard_support"
+  ],
+  "doom_bringer": [
+    "offlane",
+    "carry"
+  ],
+  "dragon_knight": [
+    "mid",
+    "offlane"
+  ],
+  "drow_ranger": [
+    "carry"
+  ],
+  "earth_spirit": [
+    "soft_support"
+  ],
+  "earthshaker": [
+    "soft_support"
+  ],
+  "elder_titan": [
+    "soft_support",
+    "offlane"
+  ],
+  "ember_spirit": [
+    "mid"
+  ],
+  "enchantress": [
+    "soft_support"
+  ],
+  "enigma": [
+    "offlane"
+  ],
+  "faceless_void": [
+    "carry"
+  ],
+  "grimstroke": [
+    "hard_support"
+  ],
+  "gyrocopter": [
+    "carry"
+  ],
+  "hoodwink": [
+    "soft_support",
+    "offlane"
+  ],
+  "huskar": [
+    "mid"
+  ],
+  "invoker": [
+    "mid"
+  ],
+  "wisp": [
+    "hard_support"
+  ],
+  "jakiro": [
+    "hard_support"
+  ],
+  "juggernaut": [
+    "carry"
+  ],
+  "keeper_of_the_light": [
+    "hard_support"
+  ],
+  "kez": [
+    "carry"
+  ],
+  "kunkka": [
+    "mid",
+    "offlane"
+  ],
+  "legion_commander": [
+    "offlane"
+  ],
+  "leshrac": [
+    "mid",
+    "offlane"
+  ],
+  "lich": [
+    "hard_support"
+  ],
+  "life_stealer": [
+    "carry"
+  ],
+  "lina": [
+    "mid",
+    "carry"
+  ],
+  "lion": [
+    "hard_support"
+  ],
+  "lone_druid": [
+    "carry"
+  ],
+  "luna": [
+    "carry"
+  ],
+  "lycan": [
+    "offlane",
+    "carry"
+  ],
+  "magnataur": [
+    "offlane",
+    "soft_support"
+  ],
+  "marci": [
+    "offlane",
+    "support"
+  ],
+  "mars": [
+    "offlane"
+  ],
+  "medusa": [
+    "carry"
+  ],
+  "meepo": [
+    "mid"
+  ],
+  "mirana": [
+    "soft_support"
+  ],
+  "monkey_king": [
+    "carry"
+  ],
+  "morphling": [
+    "carry"
+  ],
+  "muerta": [
+    "carry"
+  ],
+  "naga_siren": [
+    "carry"
+  ],
+  "furion": [
+    "offlane",
+    "carry"
+  ],
+  "necrolyte": [
+    "mid",
+    "offlane"
+  ],
+  "night_stalker": [
+    "offlane"
+  ],
+  "nyx_assassin": [
+    "soft_support"
+  ],
+  "ogre_magi": [
+    "hard_support"
+  ],
+  "omniknight": [
+    "offlane",
+    "hard_support"
+  ],
+  "oracle": [
+    "hard_support"
+  ],
+  "obsidian_destroyer": [
+    "mid"
+  ],
+  "pangolier": [
+    "mid",
+    "offlane"
+  ],
+  "phantom_assassin": [
+    "carry"
+  ],
+  "phantom_lancer": [
+    "carry"
+  ],
+  "phoenix": [
+    "soft_support",
+    "offlane"
+  ],
+  "primal_beast": [
+    "offlane"
+  ],
+  "puck": [
+    "mid"
+  ],
+  "pudge": [
+    "soft_support",
+    "offlane"
+  ],
+  "pugna": [
+    "soft_support",
+    "mid"
+  ],
+  "queenofpain": [
+    "mid"
+  ],
+  "razor": [
+    "offlane",
+    "mid"
+  ],
+  "riki": [
+    "roamer",
+    "support"
+  ],
+  "ringmaster": [
+    "unknown"
+  ],
+  "rubick": [
+    "soft_support"
+  ],
+  "sand_king": [
+    "offlane"
+  ],
+  "shadow_demon": [
+    "hard_support"
+  ],
+  "nevermore": [
+    "mid"
+  ],
+  "shadow_shaman": [
+    "hard_support"
+  ],
+  "silencer": [
+    "hard_support"
+  ],
+  "skywrath_mage": [
+    "soft_support"
+  ],
+  "slardar": [
+    "offlane"
+  ],
+  "slark": [
+    "carry"
+  ],
+  "snapfire": [
+    "soft_support"
+  ],
+  "sniper": [
+    "carry"
+  ],
+  "spectre": [
+    "carry"
+  ],
+  "spirit_breaker": [
+    "offlane",
+    "soft_support"
+  ],
+  "storm_spirit": [
+    "mid"
+  ],
+  "sven": [
+    "carry"
+  ],
+  "techies": [
+    "soft_support"
+  ],
+  "templar_assassin": [
+    "mid"
+  ],
+  "terrorblade": [
+    "carry"
+  ],
+  "tidehunter": [
+    "offlane"
+  ],
+  "shredder": [
+    "offlane"
+  ],
+  "tinker": [
+    "mid"
+  ],
+  "tiny": [
+    "mid",
+    "offlane",
+    "support"
+  ],
+  "treant": [
+    "hard_support"
+  ],
+  "troll_warlord": [
+    "carry"
+  ],
+  "tusk": [
+    "soft_support",
+    "offlane"
+  ],
+  "abyssal_underlord": [
+    "offlane"
+  ],
+  "undying": [
+    "soft_support",
+    "offlane"
+  ],
+  "ursa": [
+    "carry"
+  ],
+  "vengefulspirit": [
+    "hard_support"
+  ],
+  "venomancer": [
+    "soft_support",
+    "offlane"
+  ],
+  "viper": [
+    "mid",
+    "offlane"
+  ],
+  "visage": [
+    "mid",
+    "offlane"
+  ],
+  "void_spirit": [
+    "mid"
+  ],
+  "warlock": [
+    "hard_support"
+  ],
+  "weaver": [
+    "carry",
+    "soft_support"
+  ],
+  "windrunner": [
+    "mid",
+    "soft_support"
+  ],
+  "winter_wyvern": [
+    "hard_support"
+  ],
+  "witch_doctor": [
+    "hard_support"
+  ],
+  "skeleton_king": [
+    "carry"
+  ],
+  "zuus": [
+    "mid",
+    "support"
+  ]
+}
