@@ -81,6 +81,15 @@ def _private_ids() -> set[int]:
 
 def process_player(player_name: str, steam_id: int, last_posted_id: str | None, state: dict) -> bool:
     """Fetch and format the latest match for a player."""
+    # 🔎 Resolve guild nickname from config when available (Steam32 → nickname)
+    try:
+        nickname = (CONFIG.get("players") or {}).get(str(steam_id))
+        if isinstance(nickname, str) and nickname.strip():
+            player_name = nickname.strip()
+    except Exception:
+        # Non-fatal; keep provided player_name
+        pass
+
     if is_hard_blocked():
         return False
     if webhook_cooldown_active():
