@@ -1,8 +1,3 @@
-Perfect. I’ve rebuilt the config with exactly the 50 players from your PDF, and split them into `players_public` and `players_private` according to the “Public or Private” column.
-
-Here’s the full JSON for you to paste over the old one:
-
-```json
 {
   "test_mode": false,
   "webhook_enabled": true,
@@ -113,4 +108,3 @@ Here’s the full JSON for you to paste over the old one:
     "Tyrañt": 52996844
   }
 }
-```
