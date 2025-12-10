@@ -145,10 +145,11 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             # 🔐 Use the exact webhook used for posting (after overrides) when storing state
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                # 🆕 Add context for mention
+                # ❌ No mention here: private-data fallback should not ping the player
                 posted, _ = post_to_discord_embed(
-                    embed, resolved, want_message_id=False,
-                    context={"discord_id": discord_id}
+                    embed,
+                    resolved,
+                    want_message_id=False,
                 )
                 if posted:
                     print(f"✅ Posted private-data fallback for {player_name} match {match_id}")
@@ -187,10 +188,11 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             # 🔐 Resolve actual posting URL and store it with the pending entry
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                # 🆕 add mention context
+                # ❌ No mention here: pending fallback should not ping the player
                 posted, msg_id = post_to_discord_embed(
-                    embed, resolved, want_message_id=True,
-                    context={"discord_id": discord_id}
+                    embed,
+                    resolved,
+                    want_message_id=True,
                 )
                 if posted:
                     print(f"✅ Posted fallback embed for {player_name} match {match_id}")
@@ -249,10 +251,12 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             # Normal fresh post path
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                # 🆕 mention context added here too
+                # ✅ Mentions only on full posts (IMP ready, no pending upgrade)
                 posted, _ = post_to_discord_embed(
-                    embed, resolved, want_message_id=False,
-                    context={"discord_id": discord_id}
+                    embed,
+                    resolved,
+                    want_message_id=False,
+                    context={"discord_id": discord_id},
                 )
                 if posted:
                     print(f"✅ Posted embed for {player_name} match {match_id}")
