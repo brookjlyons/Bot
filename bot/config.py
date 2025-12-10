@@ -9,6 +9,11 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'config.json
 with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
     CONFIG = json.load(f)
 
+# Ensure discord_ids mapping always exists and is a dict
+discord_ids = CONFIG.get("discord_ids")
+if not isinstance(discord_ids, dict):
+    CONFIG["discord_ids"] = {}
+
 # Always ensure webhook_url key exists
 CONFIG.setdefault("webhook_url", None)
 
