@@ -14,8 +14,6 @@ def _debug_level() -> int:
     DEBUG_MODE:
       0 → prod (DISCORD_WEBHOOK_URL)
       1 → debug (DISCORD_WEBHOOK_URL_DEBUG)
-      2 → debug + verbose dumps (read elsewhere)
-    Truthy strings ('true','yes','on') map to 1.
     """
     raw = (os.getenv("DEBUG_MODE") or "0").strip().lower()
     try:
@@ -25,91 +23,65 @@ def _debug_level() -> int:
 
 
 DEBUG_LEVEL = _debug_level()
-_DEFAULT_WEBHOOK_URL = (
-    os.getenv("DISCORD_WEBHOOK_URL_DEBUG") if DEBUG_LEVEL > 0 else os.getenv("DISCORD_WEBHOOK_URL")
-)
-_LOGGED_DEFAULT_TARGET = False  # log destination once
 
-# ── Global posting state ───────────────────────────────────────────────────────
-
-_HARD_BLOCKED = False                   # Cloudflare 1015 guard
-_WEBHOOK_COOLDOWN_UNTIL = 0.0           # per-bucket cooldown (monotonic)
-
-# ── Internals ─────────────────────────────────────────────────────────────────
+_DEFAULT_WEBHOOK_URL: str | None = None
+_LOGGED_DEFAULT_TARGET = False
+_HARD_BLOCKED = False
+_WEBHOOK_COOLDOWN_UNTIL = 0.0
 
 
-def _parse_retry_after(r: requests.Response) -> float:
-    """Backoff seconds from headers/body; clamp to sane range."""
-    try:
-        xr = r.headers.get("X-RateLimit-Reset-After")
-        if xr is not None:
-            return max(0.5, float(xr))
-    except Exception:
-        pass
-    ra = r.headers.get("Retry-After")
-    if ra:
-        try:
-            return max(0.5, float(ra))
-        except Exception:
-            pass
-    try:
-        data = r.json()
-        if isinstance(data, dict) and "retry_after" in data:
-            v = float(data["retry_after"])
-            if v > 60:      # ms heuristic
-                v /= 1000.0
-            elif 0 < v < 0.2:
-                v *= 1000.0
-            return max(0.5, min(v, 60.0))
-    except Exception:
-        pass
-    return 2.0
+def _resolve_env_webhook() -> str | None:
+    """
+    Resolve webhook based on DEBUG_MODE:
+    - DEBUG_MODE >= 1 → DISCORD_WEBHOOK_URL_DEBUG
+    - else           → DISCORD_WEBHOOK_URL
+    """
+    if DEBUG_LEVEL > 0:
+        return (os.getenv("DISCORD_WEBHOOK_URL_DEBUG") or "").strip() or None
+    return (os.getenv("DISCORD_WEBHOOK_URL") or "").strip() or None
 
 
-def _looks_like_cloudflare_1015(r: requests.Response) -> bool:
-    """Detect Cloudflare 1015 HTML block."""
-    if "text/html" in (r.headers.get("Content-Type") or "").lower():
-        b = (r.text or "")[:500].lower()
-        return "error 1015" in b or "you are being rate limited" in b or "cloudflare" in b
-    return False
+def _ensure_default_webhook() -> None:
+    global _DEFAULT_WEBHOOK_URL
+    if _DEFAULT_WEBHOOK_URL is None:
+        _DEFAULT_WEBHOOK_URL = _resolve_env_webhook()
+        if not _DEFAULT_WEBHOOK_URL:
+            print("⚠️ No default Discord webhook URL resolved from environment.")
+
+
+_ensure_default_webhook()
+
+
+def _set_webhook_cooldown(seconds: float) -> None:
+    global _WEBHOOK_COOLDOWN_UNTIL
+    _WEBHOOK_COOLDOWN_UNTIL = max(_WEBHOOK_COOLDOWN_UNTIL, time.monotonic() + max(0.0, seconds))
 
 
 def _webhook_cooldown_active() -> bool:
     return time.monotonic() < _WEBHOOK_COOLDOWN_UNTIL
 
 
-def _set_webhook_cooldown(seconds: float):
-    global _WEBHOOK_COOLDOWN_UNTIL
-    _WEBHOOK_COOLDOWN_UNTIL = time.monotonic() + max(1.0, float(seconds))
-
-
-def _add_wait_param(url: str) -> str:
-    """Ensure ?wait=true so Discord returns the message JSON."""
-    return url + ("&wait=true" if "?" in url else "?wait=true")
-
-
-def strip_query(url: str) -> str:
-    """Drop query params from webhook URL."""
-    q = url.find("?")
-    return url if q == -1 else url[:q]
+def strip_query(webhook_url: str) -> str:
+    """Strip any query parameters from the webhook URL to get a stable base."""
+    return webhook_url.split("?", 1)[0].strip()
 
 
 def _ensure_webhook_url(webhook_url: str | None) -> str | None:
     """
-    Resolve final webhook:
-      • DEBUG_LEVEL>0 + DEBUG URL set → force debug webhook.
-      • else use provided URL or default env.
+    Normalise webhook URL according to the following precedence:
+
+    1. Explicit webhook_url parameter (if non-empty).
+    2. ENV default (DISCORD_WEBHOOK_URL[_DEBUG]) based on DEBUG_MODE.
+
+    Returns the effective URL or None if nothing is configured.
     """
     global _LOGGED_DEFAULT_TARGET
 
     if DEBUG_LEVEL > 0:
         dbg = (os.getenv("DISCORD_WEBHOOK_URL_DEBUG") or "").strip()
         if dbg:
-            if webhook_url and strip_query(webhook_url) != strip_query(dbg) and not _LOGGED_DEFAULT_TARGET:
-                print("📤 Overriding provided webhook → DEBUG (DEBUG_MODE>0).")
-                _LOGGED_DEFAULT_TARGET = True
-            if not _LOGGED_DEFAULT_TARGET and not webhook_url:
-                print("📤 Using DEBUG webhook (env).")
+            if not _LOGGED_DEFAULT_TARGET:
+                print("📤 Using DEBUG webhook (env override).")
                 _LOGGED_DEFAULT_TARGET = True
             return dbg
 
@@ -138,10 +110,41 @@ def _ok(msg_id: str | None, structured: bool):
     return (True, msg_id) if not structured else (True, msg_id, "ok", 0.0)
 
 
-def _fail(code: str, backoff: float, structured: bool, msg_id: str | None = None):
-    return (False, msg_id) if not structured else (False, msg_id, code, float(backoff))
+def _fail(code: str, backoff: float, structured: bool):
+    # Legacy fallback: just "False" when structured=False
+    if not structured:
+        return False, None
+    return (False, None, code, backoff)
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+
+def _parse_retry_after(r: requests.Response) -> float:
+    """Parse Discord retry_after (seconds; may be ms in some cases)."""
+    try:
+        data = r.json()
+        if isinstance(data, dict) and "retry_after" in data:
+            v = float(data["retry_after"])
+            if v > 60:      # ms heuristic
+                v /= 1000.0
+            elif 0 < v < 0.2:
+                v *= 1000.0
+            return max(0.5, min(v, 60.0))
+    except Exception:
+        pass
+    return 2.0
+
+
+def _looks_like_cloudflare_1015(r: requests.Response) -> bool:
+    """
+    Heuristic: CF 1015 may return HTML or JSON with 429. We only have access
+    to status + a small text snippet here, so be conservative.
+    """
+    if r.status_code != 429:
+        return False
+    text = (r.text or "").lower()
+    return "cloudflare" in text and "error 1015" in text
+
+
+# ── Core POST with structured outcomes ────────────────────────────────────────
 
 
 def post_to_discord_embed(
@@ -165,32 +168,32 @@ def post_to_discord_embed(
 
     if _webhook_cooldown_active():
         rem = max(0.0, _WEBHOOK_COOLDOWN_UNTIL - time.monotonic())
-        print(f"⏸️ Webhook cooling down — {rem:.1f}s.")
+        print(f"⏱️ Webhook cooldown active — {rem:.2f}s remaining.")
         return _fail("rate_limited", rem, structured)
 
     throttle_webhook(strip_query(webhook_url))
-    url = _add_wait_param(webhook_url) if want_message_id else webhook_url
 
-    mention = None
-    if context is not None:
+    content = None
+    if context:
         try:
             discord_id = context.get("discord_id")
-        except AttributeError:
+        except Exception:
             discord_id = None
-        mention = build_discord_mention(discord_id)
+        if discord_id:
+            mention = build_discord_mention(discord_id)
+            if mention:
+                content = mention
 
-    payload = {"embeds": [embed]}
-    if mention:
-        payload["content"] = mention
+    payload: dict = {"embeds": [embed]}
+    if content:
+        payload["content"] = content
+
+    base = strip_query(webhook_url)
+    url = base
 
     try:
         r = requests.post(url, json=payload, timeout=10)
-
-        if r.status_code == 204:
-            time.sleep(1.0 + random.uniform(0.1, 0.6))
-            return _ok(None, structured)
-
-        if r.status_code == 200:
+        if r.status_code in (200, 204):
             msg_id = None
             if want_message_id:
                 try:
@@ -206,14 +209,12 @@ def post_to_discord_embed(
             print(f"⚠️ Rate limited — retry_after={backoff:.2f}s")
             if backoff > 10:
                 _set_webhook_cooldown(backoff)
-                print(f"⏩ Entering global cooldown for {backoff:.2f}s.")
-                return _fail("rate_limited", backoff, structured)
             time.sleep(backoff)
             throttle_webhook(strip_query(webhook_url))
             rr = requests.post(url, json=payload, timeout=10)
             if rr.status_code in (200, 204):
                 msg_id = None
-                if want_message_id and rr.status_code == 200:
+                if want_message_id:
                     try:
                         msg = rr.json()
                         msg_id = str(msg.get("id")) if isinstance(msg, dict) else None
@@ -228,7 +229,6 @@ def post_to_discord_embed(
             if rr.status_code == 429:
                 rb = _parse_retry_after(rr)
                 back = max(backoff, rb)
-                _set_webhook_cooldown(back)
                 print(f"⏩ Secondary 429 — cooldown {back:.2f}s.")
                 return _fail("rate_limited", back, structured)
             print(f"⚠️ Retry failed {rr.status_code}: {rr.text[:200]}")
@@ -253,6 +253,7 @@ def edit_discord_message(
     webhook_url: str,
     exact_base: bool = True,
     *,
+    context: dict | None = None,
     structured: bool = False,
 ) -> bool | tuple[bool, str, float]:
     """
@@ -263,19 +264,34 @@ def edit_discord_message(
     """
     global _HARD_BLOCKED
 
-    base_url = webhook_url if exact_base else _ensure_webhook_url(webhook_url)
-    if not base_url:
-        return False if not structured else (False, "other_error", 0.0)
+    webhook_url = _ensure_webhook_url(webhook_url)
+    if not webhook_url:
+        if not structured:
+            return False
+        return False, "other_error", 0.0
 
     if _webhook_cooldown_active():
         rem = max(0.0, _WEBHOOK_COOLDOWN_UNTIL - time.monotonic())
         return False if not structured else (False, "rate_limited", rem)
 
-    throttle_webhook(strip_query(base_url))
+    throttle_webhook(strip_query(webhook_url))
+
+    base_url = webhook_url if exact_base else strip_query(webhook_url)
 
     base = strip_query(base_url)
     url = f"{base}/messages/{message_id}"
+    content = None
+    if context:
+        try:
+            discord_id = context.get("discord_id")
+        except Exception:
+            discord_id = None
+        mention = build_discord_mention(discord_id) if discord_id else ""
+        if mention:
+            content = mention
     payload = {"embeds": [embed]}
+    if content:
+        payload["content"] = content
 
     try:
         r = requests.patch(url, json=payload, timeout=10)
@@ -300,12 +316,12 @@ def edit_discord_message(
                 return False if not structured else (False, "hard_block", max(15.0, backoff))
             return False if not structured else (False, "other_error", 0.0)
 
-        if _looks_like_cloudflare_1015(r):
+        if r.status_code in (403, 429) and _looks_like_cloudflare_1015(r):
             _HARD_BLOCKED = True
-            print("🛑 Cloudflare 1015 on edit — aborting run.")
+            print("🛑 Cloudflare 1015 HTML block on edit — aborting run.")
             return False if not structured else (False, "hard_block", 30.0)
 
-        print(f"⚠️ Edit failed {r.status_code}: {r.text[:300]}")
+        print(f"⚠️ Edit responded {r.status_code}: {r.text[:300]}")
         return False if not structured else (False, "other_error", 0.0)
 
     except Exception as e:
