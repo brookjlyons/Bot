@@ -90,6 +90,12 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
         # Non-fatal; keep provided player_name
         pass
 
+    # 🔔 Resolve Discord ID from config (if available)
+    try:
+        discord_id = (CONFIG.get("discord_ids") or {}).get(player_name, "")
+    except Exception:
+        discord_id = ""
+
     if is_hard_blocked():
         return False
     if webhook_cooldown_active():
