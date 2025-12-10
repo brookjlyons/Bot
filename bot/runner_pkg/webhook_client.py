@@ -5,6 +5,7 @@ import random
 import requests
 import os
 from bot.throttle import throttle_webhook
+from bot.formatter_pkg.util import build_discord_mention
 
 # ── Debug & webhook selection ──────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ def _debug_level() -> int:
     except Exception:
         return 1 if raw in {"1", "true", "yes", "on"} else 0
 
+
 DEBUG_LEVEL = _debug_level()
 _DEFAULT_WEBHOOK_URL = (
     os.getenv("DISCORD_WEBHOOK_URL_DEBUG") if DEBUG_LEVEL > 0 else os.getenv("DISCORD_WEBHOOK_URL")
@@ -34,6 +36,7 @@ _HARD_BLOCKED = False                   # Cloudflare 1015 guard
 _WEBHOOK_COOLDOWN_UNTIL = 0.0           # per-bucket cooldown (monotonic)
 
 # ── Internals ─────────────────────────────────────────────────────────────────
+
 
 def _parse_retry_after(r: requests.Response) -> float:
     """Backoff seconds from headers/body; clamp to sane range."""
@@ -130,19 +133,23 @@ def resolve_webhook_for_post(webhook_url: str | None) -> str | None:
 # ── Outcome taxonomy (Phase 4) ────────────────────────────────────────────────
 # code ∈ {"ok","rate_limited","hard_block","other_error"}
 
+
 def _ok(msg_id: str | None, structured: bool):
     return (True, msg_id) if not structured else (True, msg_id, "ok", 0.0)
+
 
 def _fail(code: str, backoff: float, structured: bool, msg_id: str | None = None):
     return (False, msg_id) if not structured else (False, msg_id, code, float(backoff))
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+
 def post_to_discord_embed(
     embed: dict,
     webhook_url: str,
     want_message_id: bool = False,
     *,
+    context: dict | None = None,
     structured: bool = False,
 ) -> tuple[bool, str | None] | tuple[bool, str | None, str, float]:
     """
@@ -163,7 +170,18 @@ def post_to_discord_embed(
 
     throttle_webhook(strip_query(webhook_url))
     url = _add_wait_param(webhook_url) if want_message_id else webhook_url
+
+    mention = None
+    if context is not None:
+        try:
+            discord_id = context.get("discord_id")
+        except AttributeError:
+            discord_id = None
+        mention = build_discord_mention(discord_id)
+
     payload = {"embeds": [embed]}
+    if mention:
+        payload["content"] = mention
 
     try:
         r = requests.post(url, json=payload, timeout=10)
@@ -296,11 +314,14 @@ def edit_discord_message(
 
 # ── Runner-facing helpers ─────────────────────────────────────────────────────
 
+
 def is_hard_blocked() -> bool:
     return _HARD_BLOCKED
 
+
 def webhook_cooldown_active() -> bool:
     return _webhook_cooldown_active()
+
 
 def webhook_cooldown_remaining() -> float:
     return max(0.0, _WEBHOOK_COOLDOWN_UNTIL - time.monotonic())
