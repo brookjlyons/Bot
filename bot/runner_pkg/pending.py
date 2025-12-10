@@ -14,7 +14,7 @@ from typing import Dict, Any
 
 from bot.config import CONFIG
 from bot.throttle import throttle
-from bot.stratz import fetch_full_match
+from bot.fetch import fetch_full_match
 from bot.formatter import (
     format_match_embed,
     build_discord_embed,
@@ -31,32 +31,19 @@ from bot.runner_pkg.timeutil import now_iso, iso_to_epoch
 
 
 # ---------- Bounds & defaults ----------
-# Expiry: env override with sane bounds (30m–48h), default 12h.
-_MIN_EXPIRY = 30 * 60
-_MAX_EXPIRY = 48 * 60 * 60
-_DEFAULT_EXPIRY = 12 * 60 * 60
+# Expiry: env override with FALLBACK_EXPIRY_SEC
+_DEFAULT_EXPIRY = 900      # 15 minutes
+_MIN_EXPIRY = 300          # 5 minutes
+_MAX_EXPIRY = 3600         # 60 minutes
 
-# Re-poll spacing: default 45s with ±15s jitter (bounded overall 20–120s).
-_MIN_RECHECK = 20
-_MAX_RECHECK = 120
-_DEFAULT_RECHECK = 45
-_JITTER_RANGE = 15  # seconds
-
-
-# ---------- Small helpers ----------
-def _abort_if_blocked() -> bool:
-    """Return True if we should end the run early (prints reason)."""
-    if is_hard_blocked():
-        print("🧯 Ending run early due to Cloudflare hard block.")
-        return True
-    if webhook_cooldown_active():
-        print(f"🧯 Ending run early — webhook cooling down for {webhook_cooldown_remaining():.1f}s.")
-        return True
-    return False
+# Recheck window: env override with PENDING_RECHECK_SEC
+_DEFAULT_RECHECK = 60      # 1 minute
+_MIN_RECHECK = 20          # 20s
+_MAX_RECHECK = 600         # 10 minutes
 
 
 def _env_expiry_seconds() -> int:
-    raw = (os.getenv("PENDING_EXPIRY_SEC") or "").strip()
+    raw = (os.getenv("FALLBACK_EXPIRY_SEC") or "").strip()
     if raw.isdigit():
         try:
             v = int(raw)
@@ -87,34 +74,22 @@ def _expire_pending_snapshot(entry: Dict[str, Any]) -> Dict[str, Any]:
 def _normalize_pending_map(pending_map: Dict[str, Any]) -> None:
     """
     In-place cleanup & migration:
-      - Drop non-dict values.
-      - Ensure postedAt exists (ISO).
-      - Clamp recheckWindowSec if present.
-      - Migrate legacy keys to '<matchId>:<steamId>' when possible.
+    - Ensure keys are composite "<matchId>:<steamId>" where possible.
+    - Drop clearly invalid / corrupt entries.
     """
-    if not isinstance(pending_map, dict):
-        return
-
-    to_delete, to_add = [], {}
+    to_delete = []
+    to_add: Dict[str, Any] = {}
 
     for key, val in list(pending_map.items()):
         if not isinstance(val, dict):
             to_delete.append(key)
             continue
 
-        # postedAt (ISO) required; accept transitional 'postedAtIso'.
-        if "postedAt" not in val:
-            posted = val.get("postedAtIso")
-            val["postedAt"] = str(posted) if posted else now_iso()
-
-        # Optional Phase 4 fields:
-        rws = val.get("recheckWindowSec")
-        try:
-            if isinstance(rws, (int, float)):
-                val["recheckWindowSec"] = max(_MIN_RECHECK, min(_MAX_RECHECK, int(rws)))
-        except Exception:
-            if "recheckWindowSec" in val:
-                del val["recheckWindowSec"]
+        match_id = val.get("matchId") or key
+        steam_id = val.get("steamId")
+        if not match_id or steam_id is None:
+            to_delete.append(key)
+            continue
 
         # Legacy key migration: "<matchId>" → "<matchId>:<steamId>"
         if ":" not in str(key) and str(key).isdigit():
@@ -145,45 +120,50 @@ def _recheck_window(entry: Dict[str, Any]) -> int:
 
 def _stable_jitter_seconds(stable_key: str) -> int:
     """
-    Deterministic jitter based on a stable key (matchId:steamId).
-    We hash to [−_JITTER_RANGE, +_JITTER_RANGE] and clamp final spacing.
+    Convert stable_key into a deterministic ±jitter in [0, recheckWindow).
     """
     h = hashlib.sha256(stable_key.encode("utf-8")).hexdigest()
-    # Use first 8 hex chars for jitter
-    try:
-        base = int(h[:8], 16)
-    except Exception:
-        base = 0
-    span = 2 * _JITTER_RANGE + 1
-    # Map to [-_JITTER_RANGE, +_JITTER_RANGE]
-    offset = (base % span) - _JITTER_RANGE
-    return int(offset)
+    return int(h[:4], 16) % max(_DEFAULT_RECHECK, 1)
 
 
 def _should_recheck_now(entry: Dict[str, Any], stable_key: str, now_epoch: float) -> bool:
     """
-    Re-poll only if (now - lastCheckedAt) >= window + jitter.
-    Missing/invalid lastCheckedAt -> allow immediate check.
+    Decide whether this entry should be re-polled now based on lastCheckedAt
+    and a deterministic jitter window.
     """
-    last_iso = entry.get("lastCheckedAt")
-    if not last_iso:
+    last_checked_iso = entry.get("lastCheckedAt")
+    window = _recheck_window(entry)
+    jitter = _stable_jitter_seconds(stable_key)
+
+    if not last_checked_iso:
+        return True  # first time
+
+    try:
+        last_checked_epoch = iso_to_epoch(last_checked_iso)
+    except Exception:
         return True
-    last_epoch = iso_to_epoch(last_iso)
-    if last_epoch <= 0:
-        return True
-    next_allowed = last_epoch + max(0, _recheck_window(entry) + _stable_jitter_seconds(stable_key))
-    return now_epoch >= next_allowed
+
+    return (now_epoch - last_checked_epoch) >= max(5.0, window + jitter)
 
 
-# ---------- Main ----------
+def _abort_if_blocked() -> bool:
+    if is_hard_blocked():
+        print("🛑 Pending pass aborted — Cloudflare hard block detected.")
+        return True
+    if webhook_cooldown_active():
+        rem = webhook_cooldown_remaining()
+        print(f"⏱️ Pending pass aborted — webhook cooldown {rem:.2f}s.")
+        return True
+    return False
+
+
 def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
     """
-    Pass 0: upgrade or expire pending fallback posts.
-    Returns False to end the run early (hard block or webhook cooldown).
-    """
-    if _abort_if_blocked():
-        return False
+    Pass 0: walk state["pending"], upgrading to full embeds when IMP is ready,
+    or expiring them when the fallback window closes.
 
+    Returns False if the run should be aborted early (hard block / cooldown).
+    """
     pending_map = state.get("pending") or {}
     if not isinstance(pending_map, dict):
         state["pending"] = {}
@@ -191,30 +171,29 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
 
     _normalize_pending_map(pending_map)
 
-    keys = list(pending_map.keys())
     now_epoch = time.time()
+    expiry_sec_env = _env_expiry_seconds()
 
-    for key in keys:
-        entry = pending_map.get(key)
+    for key, entry in list(pending_map.items()):
         if not isinstance(entry, dict):
-            pending_map.pop(key, None)
             continue
 
-        if _abort_if_blocked():
-            return False
-
-        # Identity & validation
-        steam_id = entry.get("steamId")
         match_id = entry.get("matchId")
+        steam_id = entry.get("steamId")
         message_id = entry.get("messageId")
         base_url = entry.get("webhookBase") or CONFIG.get("webhook_url")
-        if not (steam_id and match_id and message_id and base_url):
-            pending_map.pop(key, None)
+
+        if not match_id or not steam_id or not message_id or not base_url:
             continue
 
-        # Expiry (always evaluated; not gated by spacing)
-        posted_epoch = iso_to_epoch(entry.get("postedAt"))
-        if max(0.0, now_epoch - max(0.0, posted_epoch)) >= _entry_expiry_seconds(entry):
+        # Expiry check
+        expires_after = _entry_expiry_seconds(entry) or expiry_sec_env
+        try:
+            posted_at_epoch = float(entry.get("postedAt") or 0.0)
+        except Exception:
+            posted_at_epoch = 0.0
+
+        if posted_at_epoch > 0 and (now_epoch - posted_at_epoch) >= expires_after:
             try:
                 embed = _expire_pending_snapshot(entry)
                 ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
@@ -226,11 +205,11 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                         return False
                     print(f"⚠️ Failed to mark expired for match {match_id} (steam {steam_id}) — will retry later")
             except Exception as e:
-                print(f"❌ Error expiring fallback for match {match_id} (steam {steam_id}): {e}")
-            time.sleep(0.5)
+                print(f"❌ Error expiring pending entry for match {match_id} (steam {steam_id}): {e}")
+            time.sleep(0.3)
             continue
 
-        # Spacing / recheck control
+        # Recheck spacing logic
         stable_key = f"{match_id}:{steam_id}"
         if not _should_recheck_now(entry, stable_key, now_epoch):
             continue
@@ -262,7 +241,20 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
             embed_result = format_match_embed(player, data, player.get("stats", {}) or {}, player_name)
             embed = build_discord_embed(embed_result)
 
-            ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+            # Resolve Discord ID for this player name (matches config mapping used in players runner)
+            try:
+                discord_ids = CONFIG.get("discord_ids") or {}
+                discord_id = discord_ids.get(player_name, "")
+            except Exception:
+                discord_id = ""
+
+            ok = edit_discord_message(
+                message_id,
+                embed,
+                base_url,
+                exact_base=True,
+                context={"discord_id": discord_id} if discord_id else None,
+            )
             if ok:
                 print(f"🔁 Upgraded fallback → full embed for match {match_id} (steam {steam_id})")
                 state[str(steam_id)] = match_id
