@@ -29,7 +29,7 @@ def _debug_level() -> int:
     try:
         return int(raw)
     except Exception:
-        return 1 if raw in {"1", "true", "yes", "on"} else 0
+        return 1 if raw in {"1", "true", "yes", "on"}
 
 
 def _truthy(v: str | None) -> bool:
@@ -233,6 +233,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                 embed,
                 pending_entry.get("webhookBase") or CONFIG.get("webhook_url"),
                 exact_base=True,  # honor stored base; do NOT override
+                context={"discord_id": discord_id} if discord_id else None,
             )
             if ok:
                 print(f"🔁 Upgraded fallback → full embed for {player_name} match {match_id}")
