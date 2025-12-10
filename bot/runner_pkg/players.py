@@ -145,7 +145,11 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             # 🔐 Use the exact webhook used for posting (after overrides) when storing state
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                posted, _ = post_to_discord_embed(embed, resolved, want_message_id=False)
+                # 🆕 Add context for mention
+                posted, _ = post_to_discord_embed(
+                    embed, resolved, want_message_id=False,
+                    context={"discord_id": discord_id}
+                )
                 if posted:
                     print(f"✅ Posted private-data fallback for {player_name} match {match_id}")
                     state[str(steam_id)] = match_id
@@ -183,18 +187,20 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             # 🔐 Resolve actual posting URL and store it with the pending entry
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                posted, msg_id = post_to_discord_embed(embed, resolved, want_message_id=True)
+                # 🆕 add mention context
+                posted, msg_id = post_to_discord_embed(
+                    embed, resolved, want_message_id=True,
+                    context={"discord_id": discord_id}
+                )
                 if posted:
                     print(f"✅ Posted fallback embed for {player_name} match {match_id}")
                     pending_map[composite_key] = {
                         "steamId": steam_id,
-                        "matchId": match_id,              # ✅ store explicitly for upgrade/expiry
+                        "matchId": match_id,              # store explicitly for upgrade/expiry
                         "messageId": msg_id,
-                        # Transitional: keep numeric for compatibility until pending.py is updated,
-                        # but also write ISO to support the schema and upcoming reader.
-                        "postedAt": time.time(),
-                        "postedAtIso": now_iso(),
-                        "webhookBase": strip_query(resolved),  # ✅ exact base used
+                        "postedAt": time.time(),          # legacy float
+                        "postedAtIso": now_iso(),         # ISO
+                        "webhookBase": strip_query(resolved),
                         "snapshot": result,
                     }
                     state[str(steam_id)] = match_id
@@ -224,7 +230,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                 pending_entry["messageId"],
                 embed,
                 pending_entry.get("webhookBase") or CONFIG.get("webhook_url"),
-                exact_base=True,  # ✅ honor stored base; do NOT override
+                exact_base=True,  # honor stored base; do NOT override
             )
             if ok:
                 print(f"🔁 Upgraded fallback → full embed for {player_name} match {match_id}")
@@ -243,7 +249,11 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             # Normal fresh post path
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                posted, _ = post_to_discord_embed(embed, resolved, want_message_id=False)
+                # 🆕 mention context added here too
+                posted, _ = post_to_discord_embed(
+                    embed, resolved, want_message_id=False,
+                    context={"discord_id": discord_id}
+                )
                 if posted:
                     print(f"✅ Posted embed for {player_name} match {match_id}")
                     state[str(steam_id)] = match_id
