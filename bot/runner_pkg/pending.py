@@ -29,6 +29,7 @@ from .webhook_client import (
 
 from bot.runner_pkg.timeutil import now_iso, iso_to_epoch
 
+
 # ---------- Bounds & defaults ----------
 # Expiry: env override with sane bounds (30m–48h), default 12h.
 _MIN_EXPIRY = 30 * 60
@@ -108,42 +109,55 @@ def _normalize_pending_map(pending_map: Dict[str, Any]) -> None:
 
         # Optional Phase 4 fields:
         rws = val.get("recheckWindowSec")
-        if isinstance(rws, (int, float)):
-            val["recheckWindowSec"] = max(_MIN_RECHECK, min(_MAX_RECHECK, int(rws)))
-        elif rws is not None:
-            val.pop("recheckWindowSec", None)  # invalid -> drop
+        try:
+            if isinstance(rws, (int, float)):
+                val["recheckWindowSec"] = max(_MIN_RECHECK, min(_MAX_RECHECK, int(rws)))
+        except Exception:
+            if "recheckWindowSec" in val:
+                del val["recheckWindowSec"]
 
-        # Legacy key -> composite
-        steam_id, match_id = val.get("steamId"), val.get("matchId")
-        if ":" not in str(key) and steam_id is not None and match_id is not None:
+        # Legacy key migration: "<matchId>" → "<matchId>:<steamId>"
+        if ":" not in str(key) and str(key).isdigit():
             try:
-                composite = f"{int(match_id)}:{int(steam_id)}"
-                if composite != key and composite not in pending_map and composite not in to_add:
-                    to_add[composite] = val
-                    to_delete.append(key)
+                steam = int((val or {}).get("steamId"))
             except Exception:
-                pass
+                steam = None
+            if steam is not None:
+                new_key = f"{int(key)}:{steam}"
+                if new_key not in pending_map and new_key not in to_add:
+                    to_add[new_key] = val
+                    to_delete.append(key)
 
     for k in to_delete:
         pending_map.pop(k, None)
     pending_map.update(to_add)
 
 
-def _stable_jitter_seconds(stable_key: str) -> int:
-    """Deterministic ±JITTER derived from entry key (no RNG)."""
-    try:
-        h = hashlib.sha256(stable_key.encode("utf-8")).hexdigest()
-        bucket = int(h[:8], 16) % (2 * _JITTER_RANGE + 1)
-        return bucket - _JITTER_RANGE
-    except Exception:
-        return 0
-
-
 def _recheck_window(entry: Dict[str, Any]) -> int:
     v = entry.get("recheckWindowSec")
-    if isinstance(v, (int, float)):
-        return max(_MIN_RECHECK, min(_MAX_RECHECK, int(v)))
+    try:
+        if isinstance(v, (int, float)):
+            return max(_MIN_RECHECK, min(_MAX_RECHECK, int(v)))
+    except Exception:
+        pass
     return _DEFAULT_RECHECK
+
+
+def _stable_jitter_seconds(stable_key: str) -> int:
+    """
+    Deterministic jitter based on a stable key (matchId:steamId).
+    We hash to [−_JITTER_RANGE, +_JITTER_RANGE] and clamp final spacing.
+    """
+    h = hashlib.sha256(stable_key.encode("utf-8")).hexdigest()
+    # Use first 8 hex chars for jitter
+    try:
+        base = int(h[:8], 16)
+    except Exception:
+        base = 0
+    span = 2 * _JITTER_RANGE + 1
+    # Map to [-_JITTER_RANGE, +_JITTER_RANGE]
+    offset = (base % span) - _JITTER_RANGE
+    return int(offset)
 
 
 def _should_recheck_now(entry: Dict[str, Any], stable_key: str, now_epoch: float) -> bool:
@@ -216,9 +230,9 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
             time.sleep(0.5)
             continue
 
-        # Spaced Stratz re-poll
-        if not _should_recheck_now(entry, stable_key=str(key), now_epoch=now_epoch):
-            time.sleep(0.05)  # gentle yield
+        # Spacing / recheck control
+        stable_key = f"{match_id}:{steam_id}"
+        if not _should_recheck_now(entry, stable_key, now_epoch):
             continue
 
         # Attempt upgrade
@@ -240,7 +254,12 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
             if not player or player.get("imp") is None:
                 continue
 
-            embed_result = format_match_embed(player, data, player.get("stats", {}) or {}, player.get("name", "") or "")
+            # Preserve the original displayed player name from the pending snapshot when upgrading.
+            # This keeps guild nicknames / custom labels stable between fallback and full embeds.
+            snapshot = entry.get("snapshot") or {}
+            player_name = snapshot.get("playerName") or player.get("name", "") or "Player"
+
+            embed_result = format_match_embed(player, data, player.get("stats", {}) or {}, player_name)
             embed = build_discord_embed(embed_result)
 
             ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
