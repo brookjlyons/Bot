@@ -19,7 +19,7 @@ from .webhook_client import (
     webhook_cooldown_remaining,
     is_hard_blocked,
     strip_query,
-    resolve_webhook_for_post,  # ✅ NEW: get the actual posting URL
+    resolve_webhook_for_post,  # get the actual posting URL
 )
 from .timeutil import now_iso
 
@@ -29,7 +29,7 @@ def _debug_level() -> int:
     try:
         return int(raw)
     except Exception:
-        return 1 if raw in {"1", "true", "yes", "on"}
+        return 1 if raw in {"1", "true", "yes", "on"} else 0
 
 
 def _truthy(v: str | None) -> bool:
@@ -129,7 +129,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             pending_map[composite_key] = legacy
             pending_map.pop(str(match_id), None)
 
-    # --- NEW: Private-data path (no pending/upgrade tracking, custom status, no '(Pending Stats)') ---
+    # --- Private-data path (no pending/upgrade tracking, custom status, no '(Pending Stats)') ---
     if steam_id in _private_ids():
         print(f"🔒 Private-data player detected for {player_name} ({steam_id}) — posting one-off fallback.")
         try:
@@ -142,10 +142,10 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
 
             embed = build_fallback_embed(result)
 
-            # 🔐 Use the exact webhook used for posting (after overrides) when storing state
+            # Use the exact webhook used for posting (after overrides) when storing state
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                # ❌ No mention here: private-data fallback should not ping the player
+                # No mention here: private-data fallback should not ping the player
                 posted, _ = post_to_discord_embed(
                     embed,
                     resolved,
@@ -185,10 +185,10 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             result = format_fallback_embed(player_data, match_data, player_name)
             embed = build_fallback_embed(result)
 
-            # 🔐 Resolve actual posting URL and store it with the pending entry
+            # Resolve actual posting URL and store it with the pending entry
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
-                # ❌ No mention here: pending fallback should not ping the player
+                # No mention here: pending fallback should not ping the player
                 posted, msg_id = post_to_discord_embed(
                     embed,
                     resolved,
