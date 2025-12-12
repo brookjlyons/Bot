@@ -126,3 +126,48 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
         embed["author"]["icon_url"] = avatar_url
 
     return embed
+
+
+def build_party_fallback_embed(match_id: int, party_id: int, is_radiant: int, members: list[dict]) -> dict:
+    """Build a simple fallback embed for a detected party stack (Phase 2a)."""
+    from datetime import datetime, timezone
+
+    side = "Radiant" if int(is_radiant) == 1 else "Dire"
+    member_ids = [str(p.get("steamAccountId") or "") for p in (members or []) if str(p.get("steamAccountId") or "").strip()]
+    member_val = "\n".join(member_ids) if member_ids else "-"
+
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    return {
+        "title": f"👥 Party Stack Detected — {side}",
+        "description": "",
+        "fields": [
+            {"name": "Party ID", "value": str(party_id), "inline": True},
+            {"name": "Members", "value": member_val, "inline": False},
+        ],
+        "footer": {"text": f"Match ID: {match_id}"},
+        "timestamp": timestamp,
+    }
+
+
+def build_duel_fallback_embed(match_id: int, radiant: list[dict], dire: list[dict]) -> dict:
+    """Build a simple fallback embed for a detected guild duel (Phase 2a)."""
+    from datetime import datetime, timezone
+
+    r_ids = [str(p.get("steamAccountId") or "") for p in (radiant or []) if str(p.get("steamAccountId") or "").strip()]
+    d_ids = [str(p.get("steamAccountId") or "") for p in (dire or []) if str(p.get("steamAccountId") or "").strip()]
+
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    return {
+        "title": "⚔️ Guild Duel Detected",
+        "description": "",
+        "fields": [
+            {"name": "Radiant", "value": "\n".join(r_ids) if r_ids else "-", "inline": True},
+            {"name": "Dire", "value": "\n".join(d_ids) if d_ids else "-", "inline": True},
+        ],
+        "footer": {"text": f"Match ID: {match_id}"},
+        "timestamp": timestamp,
+    }
