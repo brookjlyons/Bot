@@ -1,5 +1,4 @@
-name: Render Keep Alive
-
+name: Render Health Check
 on:
   schedule:
     # Every 10 minutes (UTC)
