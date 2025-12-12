@@ -32,14 +32,14 @@ from bot.runner_pkg.timeutil import now_iso, iso_to_epoch
 
 # ---------- Bounds & defaults ----------
 # Expiry: env override with FALLBACK_EXPIRY_SEC
-_DEFAULT_EXPIRY = 900      # 15 minutes
+_DEFAULT_EXPIRY = 10800   # 3 hours
 _MIN_EXPIRY = 300          # 5 minutes
-_MAX_EXPIRY = 3600         # 60 minutes
+_MAX_EXPIRY = 10800       # 3 hours
 
 # Recheck window: env override with PENDING_RECHECK_SEC
-_DEFAULT_RECHECK = 60      # 1 minute
-_MIN_RECHECK = 20          # 20s
-_MAX_RECHECK = 600         # 10 minutes
+_DEFAULT_RECHECK = 600     # 10 minutes
+_MIN_RECHECK = 60          # 60s
+_MAX_RECHECK = 3600        # 60 minutes
 
 
 def _env_expiry_seconds() -> int:
@@ -251,10 +251,13 @@ def _recheck_window(entry: Dict[str, Any]) -> int:
 
 def _stable_jitter_seconds(stable_key: str) -> int:
     """
-    Convert stable_key into a deterministic ±jitter in [0, recheckWindow).
+    Deterministic jitter helper (Phase 4).
+
+    Phase 4 originally added ±jitter to spread load across runs.
+    Current policy: fixed cadence (no jitter). Return 0.
     """
-    h = hashlib.sha256(stable_key.encode("utf-8")).hexdigest()
-    return int(h[:4], 16) % max(_DEFAULT_RECHECK, 1)
+    _ = stable_key
+    return 0
 
 
 def _should_recheck_now(entry: Dict[str, Any], stable_key: str, now_epoch: float) -> bool:
