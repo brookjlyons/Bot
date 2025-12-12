@@ -303,7 +303,21 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                 if party_key in party_posted:
                     continue
 
-                embed = build_party_fallback_embed(match_id, int(pid) if str(pid).isdigit() else pid, side, members)
+                # Derive Win/Loss for the party side (best-effort) from any member payload.
+                try:
+                    party_is_victory = bool((members or [])[0].get("isVictory")) if members else None
+                except Exception:
+                    party_is_victory = None
+
+                embed = build_party_fallback_embed(
+                    match_id,
+                    int(pid) if str(pid).isdigit() else pid,
+                    side,
+                    members,
+                    match_data.get("gameMode"),
+                    match_data.get("durationSeconds"),
+                    party_is_victory,
+                )
                 posted, msg_id = post_to_discord_embed(
                     embed,
                     active_webhook,
