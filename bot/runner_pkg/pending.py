@@ -63,12 +63,143 @@ def _entry_expiry_seconds(entry: Dict[str, Any]) -> int:
     return _env_expiry_seconds()
 
 
+def _posted_at_epoch(entry: Dict[str, Any]) -> float:
+    v = entry.get("postedAt")
+    try:
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, str) and v.strip():
+            vv = v.strip()
+            if vv.replace(".", "", 1).isdigit():
+                return float(vv)
+            return float(iso_to_epoch(vv))
+    except Exception:
+        pass
+    return 0.0
+
+
 def _expire_pending_snapshot(entry: Dict[str, Any]) -> Dict[str, Any]:
     """Return an 'expired' fallback embed built from stored snapshot."""
     snap = entry.get("snapshot") or {}
     expired = dict(snap)
     expired["statusNote"] = "Stats window expired — final analysis unavailable."
     return build_fallback_embed(expired)
+
+
+def _build_party_upgrade_embed(match_id: int, party_id: str, is_radiant: int, members: list[dict]) -> dict:
+    """Build a simple 'upgraded' embed for party stacks once IMP is available (Phase 2b)."""
+    from datetime import datetime, timezone
+
+    side = "Radiant" if int(is_radiant) == 1 else "Dire"
+    lines = []
+    for p in sorted((members or []), key=lambda x: str(x.get("steamAccountId") or "")):
+        sid = str(p.get("steamAccountId") or "").strip()
+        if not sid:
+            continue
+        nick = (CONFIG.get("players") or {}).get(sid) or sid
+        imp = p.get("imp")
+        try:
+            imp_str = "-" if imp is None else f"{float(imp):.1f}"
+        except Exception:
+            imp_str = "-"
+        lines.append(f"{nick} ({sid}) — IMP {imp_str}")
+
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    return {
+        "title": f"👥 Party Stack — {side} (Upgraded)",
+        "description": "",
+        "fields": [
+            {"name": "Party ID", "value": str(party_id), "inline": True},
+            {"name": "Members", "value": "\n".join(lines) if lines else "-", "inline": False},
+        ],
+        "footer": {"text": f"Match ID: {match_id}"},
+        "timestamp": timestamp,
+    }
+
+
+def _build_party_expired_embed(match_id: int, party_id: str, is_radiant: int, snapshot: Dict[str, Any]) -> dict:
+    from datetime import datetime, timezone
+
+    side = "Radiant" if int(is_radiant) == 1 else "Dire"
+    count = (snapshot or {}).get("memberCount")
+    count_str = str(count) if isinstance(count, (int, float)) else "-"
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    return {
+        "title": f"👥 Party Stack — {side} (Expired)",
+        "description": "",
+        "fields": [
+            {"name": "Party ID", "value": str(party_id), "inline": True},
+            {"name": "Members", "value": f"{count_str} member(s) (details unavailable)", "inline": False},
+            {"name": "⚠️ Status", "value": "Stats window expired — final analysis unavailable.", "inline": False},
+        ],
+        "footer": {"text": f"Match ID: {match_id}"},
+        "timestamp": timestamp,
+    }
+
+
+def _build_duel_upgrade_embed(match_id: int, radiant: list[dict], dire: list[dict]) -> dict:
+    """Build a simple 'upgraded' embed for duels once IMP is available (Phase 2b)."""
+    from datetime import datetime, timezone
+
+    def _lines(side_players: list[dict]) -> list[str]:
+        out = []
+        for p in sorted((side_players or []), key=lambda x: str(x.get("steamAccountId") or "")):
+            sid = str(p.get("steamAccountId") or "").strip()
+            if not sid:
+                continue
+            nick = (CONFIG.get("players") or {}).get(sid) or sid
+            imp = p.get("imp")
+            try:
+                imp_str = "-" if imp is None else f"{float(imp):.1f}"
+            except Exception:
+                imp_str = "-"
+            out.append(f"{nick} ({sid}) — IMP {imp_str}")
+        return out
+
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    r_lines = _lines(radiant)
+    d_lines = _lines(dire)
+
+    return {
+        "title": "⚔️ Guild Duel (Upgraded)",
+        "description": "",
+        "fields": [
+            {"name": "Radiant", "value": "\n".join(r_lines) if r_lines else "-", "inline": True},
+            {"name": "Dire", "value": "\n".join(d_lines) if d_lines else "-", "inline": True},
+        ],
+        "footer": {"text": f"Match ID: {match_id}"},
+        "timestamp": timestamp,
+    }
+
+
+def _build_duel_expired_embed(match_id: int, snapshot: Dict[str, Any]) -> dict:
+    from datetime import datetime, timezone
+
+    rc = (snapshot or {}).get("radiantCount")
+    dc = (snapshot or {}).get("direCount")
+    rc_s = str(rc) if isinstance(rc, (int, float)) else "-"
+    dc_s = str(dc) if isinstance(dc, (int, float)) else "-"
+
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    return {
+        "title": "⚔️ Guild Duel (Expired)",
+        "description": "",
+        "fields": [
+            {"name": "Radiant", "value": f"{rc_s} member(s) (details unavailable)", "inline": True},
+            {"name": "Dire", "value": f"{dc_s} member(s) (details unavailable)", "inline": True},
+            {"name": "⚠️ Status", "value": "Stats window expired — final analysis unavailable.", "inline": False},
+        ],
+        "footer": {"text": f"Match ID: {match_id}"},
+        "timestamp": timestamp,
+    }
 
 
 def _normalize_pending_map(pending_map: Dict[str, Any]) -> None:
@@ -188,10 +319,7 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
 
         # Expiry check
         expires_after = _entry_expiry_seconds(entry) or expiry_sec_env
-        try:
-            posted_at_epoch = float(entry.get("postedAt") or 0.0)
-        except Exception:
-            posted_at_epoch = 0.0
+        posted_at_epoch = _posted_at_epoch(entry)
 
         if posted_at_epoch > 0 and (now_epoch - posted_at_epoch) >= expires_after:
             try:
@@ -268,6 +396,183 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
             print(f"❌ Error building/upgrading embed for match {match_id} (steam {steam_id}): {e}")
 
         time.sleep(0.5)  # be gentle to Discord & Stratz
+
+    # ---- Party pending upgrades/expiry (Phase 2b) ----
+    party_pending_map = state.get("partyPending") or {}
+    if isinstance(party_pending_map, dict) and party_pending_map:
+        for key, entry in list(party_pending_map.items()):
+            if not isinstance(entry, dict):
+                continue
+
+            match_id = entry.get("matchId")
+            party_id = entry.get("partyId")
+            message_id = entry.get("messageId")
+            base_url = entry.get("webhookBase") or CONFIG.get("webhook_url")
+
+            # Parse side from key "<matchId>:<partyId>:<isRadiant>"
+            is_radiant = None
+            try:
+                parts = str(key).split(":")
+                if len(parts) >= 3 and parts[-1].strip().isdigit():
+                    is_radiant = int(parts[-1].strip())
+            except Exception:
+                is_radiant = None
+            if is_radiant is None:
+                is_radiant = 1 if (entry.get("isRadiant") in (1, True, "1", "true", "True")) else 0
+
+            if not match_id or not party_id or not message_id or not base_url:
+                continue
+
+            # Expiry check
+            expires_after = _entry_expiry_seconds(entry) or expiry_sec_env
+            posted_at_epoch = _posted_at_epoch(entry)
+
+            if posted_at_epoch > 0 and (now_epoch - posted_at_epoch) >= expires_after:
+                try:
+                    snap = entry.get("snapshot") or {}
+                    embed = _build_party_expired_embed(int(match_id), str(party_id), int(is_radiant), snap)
+                    ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                    if ok:
+                        print(f"🗑️ Expired party pending for match {match_id} (party {party_id}, side {is_radiant})")
+                        party_pending_map.pop(key, None)
+                    else:
+                        if _abort_if_blocked():
+                            return False
+                        print(f"⚠️ Failed to mark party expired for match {match_id} (party {party_id}) — will retry later")
+                except Exception as e:
+                    print(f"❌ Error expiring party pending entry for match {match_id} (party {party_id}): {e}")
+                time.sleep(0.3)
+                continue
+
+            # Recheck spacing logic
+            stable_key = f"{match_id}:{party_id}:{is_radiant}"
+            if not _should_recheck_now(entry, stable_key, now_epoch):
+                continue
+
+            try:
+                throttle()
+                data = fetch_full_match(int(match_id))
+                entry["lastCheckedAt"] = now_iso()
+
+                if not data or (isinstance(data, dict) and data.get("error") == "quota_exceeded"):
+                    time.sleep(0.2)
+                    continue
+
+                match_players = (data.get("players") or []) if isinstance(data, dict) else []
+                # Locate party members by partyId + side; ignore solo/partyId missing
+                members = []
+                for p in match_players:
+                    try:
+                        if str(p.get("partyId") or "") != str(party_id):
+                            continue
+                        side = 1 if p.get("isRadiant") else 0
+                        if int(side) != int(is_radiant):
+                            continue
+                        members.append(p)
+                    except Exception:
+                        continue
+
+                if len(members) < 2:
+                    # Party no longer looks valid; leave it pending (safe no-op)
+                    continue
+
+                # Upgrade only when all members have IMP
+                if any((p.get("imp") is None) for p in members):
+                    continue
+
+                embed = _build_party_upgrade_embed(int(match_id), str(party_id), int(is_radiant), members)
+                ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                if ok:
+                    print(f"🔁 Upgraded party pending → upgraded embed for match {match_id} (party {party_id}, side {is_radiant})")
+                    party_pending_map.pop(key, None)
+                else:
+                    if _abort_if_blocked():
+                        return False
+                    print(f"⚠️ Failed to upgrade party (edit) for match {match_id} (party {party_id}) — will retry later")
+
+            except Exception as e:
+                print(f"❌ Error upgrading party pending entry for match {match_id} (party {party_id}): {e}")
+
+            time.sleep(0.5)
+
+        state["partyPending"] = party_pending_map
+
+    # ---- Duel pending upgrades/expiry (Phase 2b) ----
+    duel_pending_map = state.get("duelPending") or {}
+    if isinstance(duel_pending_map, dict) and duel_pending_map:
+        guild_ids = set((CONFIG.get("players") or {}).keys())
+        for key, entry in list(duel_pending_map.items()):
+            if not isinstance(entry, dict):
+                continue
+
+            match_id = entry.get("matchId") or key
+            message_id = entry.get("messageId")
+            base_url = entry.get("webhookBase") or CONFIG.get("webhook_url")
+
+            if not match_id or not message_id or not base_url:
+                continue
+
+            # Expiry check
+            expires_after = _entry_expiry_seconds(entry) or expiry_sec_env
+            posted_at_epoch = _posted_at_epoch(entry)
+
+            if posted_at_epoch > 0 and (now_epoch - posted_at_epoch) >= expires_after:
+                try:
+                    snap = entry.get("snapshot") or {}
+                    embed = _build_duel_expired_embed(int(match_id), snap)
+                    ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                    if ok:
+                        print(f"🗑️ Expired duel pending for match {match_id}")
+                        duel_pending_map.pop(str(key), None)
+                    else:
+                        if _abort_if_blocked():
+                            return False
+                        print(f"⚠️ Failed to mark duel expired for match {match_id} — will retry later")
+                except Exception as e:
+                    print(f"❌ Error expiring duel pending entry for match {match_id}: {e}")
+                time.sleep(0.3)
+                continue
+
+            # Recheck spacing logic
+            stable_key = f"{match_id}:duel"
+            if not _should_recheck_now(entry, stable_key, now_epoch):
+                continue
+
+            try:
+                throttle()
+                data = fetch_full_match(int(match_id))
+                entry["lastCheckedAt"] = now_iso()
+
+                if not data or (isinstance(data, dict) and data.get("error") == "quota_exceeded"):
+                    time.sleep(0.2)
+                    continue
+
+                match_players = (data.get("players") or []) if isinstance(data, dict) else []
+                radiant = [p for p in match_players if p.get("isRadiant") and str(p.get("steamAccountId")) in guild_ids]
+                dire = [p for p in match_players if (not p.get("isRadiant")) and str(p.get("steamAccountId")) in guild_ids]
+
+                if not radiant or not dire:
+                    continue
+
+                if any((p.get("imp") is None) for p in radiant + dire):
+                    continue
+
+                embed = _build_duel_upgrade_embed(int(match_id), radiant, dire)
+                ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                if ok:
+                    print(f"🔁 Upgraded duel pending → upgraded embed for match {match_id}")
+                    duel_pending_map.pop(str(key), None)
+                else:
+                    if _abort_if_blocked():
+                        return False
+                    print(f"⚠️ Failed to upgrade duel (edit) for match {match_id} — will retry later")
+
+            except Exception as e:
+                print(f"❌ Error upgrading duel pending entry for match {match_id}: {e}")
+
+            time.sleep(0.5)
+
+        state["duelPending"] = duel_pending_map
 
     state["pending"] = pending_map
     return True
