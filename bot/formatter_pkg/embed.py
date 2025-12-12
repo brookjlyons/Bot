@@ -128,23 +128,164 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     return embed
 
 
-def build_party_fallback_embed(match_id: int, party_id: int, is_radiant: int, members: list[dict]) -> dict:
-    """Build a simple fallback embed for a detected party stack (Phase 2a)."""
+
+def _format_duration_seconds(seconds: int) -> str:
+    """Format duration seconds as M:SS or H:MM:SS (deterministic)."""
+    try:
+        s = int(seconds or 0)
+    except Exception:
+        s = 0
+    if s < 0:
+        s = 0
+    h = s // 3600
+    m = (s % 3600) // 60
+    sec = s % 60
+    if h > 0:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m}:{sec:02d}"
+
+
+def _human_game_mode(game_mode: Any) -> str:
+    """Convert game mode token to human readable label (best-effort, no lookup tables)."""
+    raw = str(game_mode or "").strip()
+    if not raw:
+        return "Unknown"
+    return raw.replace("_", " ").strip().title()
+
+
+def build_party_fallback_embed(
+    match_id: int,
+    party_id: int,
+    is_radiant: int,
+    members: list[dict],
+    game_mode: Any | None = None,
+    duration_seconds: int | None = None,
+    is_victory: bool | None = None,
+) -> dict:
+    """Build a richer fallback embed for a detected party stack (Phase 2c pending parity)."""
     from datetime import datetime, timezone
 
+    # Prefer stable ordering: Steam32 ascending (deterministic).
+    try:
+        members_sorted = sorted(
+            (members or []),
+            key=lambda p: int(p.get("steamAccountId") or 0),
+        )
+    except Exception:
+        members_sorted = list(members or [])
+
     side = "Radiant" if int(is_radiant) == 1 else "Dire"
-    member_ids = [str(p.get("steamAccountId") or "") for p in (members or []) if str(p.get("steamAccountId") or "").strip()]
-    member_val = "\n".join(member_ids) if member_ids else "-"
+
+    # Win/Loss label: derive from is_victory when provided, else omit.
+    wl = ""
+    if is_victory is True:
+        wl = " • Win"
+    elif is_victory is False:
+        wl = " • Loss"
+
+    # Resolve member display names:
+    # Prefer guild nickname via CONFIG['players'][steam32], else fall back to Steam name fields, else steam32 id.
+    try:
+        from bot.config import CONFIG
+    except Exception:
+        CONFIG = {}
+
+    lines: list[str] = []
+    for p in members_sorted:
+        sid = p.get("steamAccountId")
+        sid_str = str(sid) if sid is not None else ""
+
+        name = ""
+        try:
+            nickname = (CONFIG.get("players") or {}).get(str(int(sid))) if sid is not None else None
+            if isinstance(nickname, str) and nickname.strip():
+                name = nickname.strip()
+        except Exception:
+            pass
+
+        if not name:
+            # Best-effort Steam name fallbacks from match payload variants.
+            try:
+                for key in ("name", "steamName", "personaName", "personaname", "playerName"):
+                    v = p.get(key)
+                    if isinstance(v, str) and v.strip():
+                        name = v.strip()
+                        break
+            except Exception:
+                pass
+
+        if not name:
+            try:
+                steam_acct = p.get("steamAccount") or {}
+                v = steam_acct.get("name")
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+            except Exception:
+                pass
+
+        if not name:
+            name = sid_str.strip() or "-"
+
+        # Resolve hero name (best-effort from available fields; no invented hero lists).
+        hero = ""
+        try:
+            hv = p.get("heroName") or p.get("hero") or p.get("heroDisplayName")
+            if isinstance(hv, str) and hv.strip():
+                hero = hv.strip()
+            elif isinstance(hv, dict):
+                dn = hv.get("displayName") or hv.get("name")
+                if isinstance(dn, str) and dn.strip():
+                    hero = dn.strip()
+        except Exception:
+            pass
+
+        if not hero:
+            try:
+                hid = p.get("heroId")
+                if hid is not None:
+                    hero = str(hid)
+            except Exception:
+                pass
+
+        if not hero:
+            hero = "Unknown"
+
+        # K/D/A defaults are 0 when missing.
+        try:
+            k = int(p.get("kills") or 0)
+        except Exception:
+            k = 0
+        try:
+            d = int(p.get("deaths") or 0)
+        except Exception:
+            d = 0
+        try:
+            a = int(p.get("assists") or 0)
+        except Exception:
+            a = 0
+
+        lines.append(f"{name} — {hero} ({k} / {d} / {a})")
+
+    members_val = "\n".join(lines) if lines else "-"
+
+    mode_label = _human_game_mode(game_mode)
+    dur_label = _format_duration_seconds(duration_seconds or 0)
 
     now = datetime.now(timezone.utc).astimezone()
     timestamp = now.isoformat()
 
+    stack_n = len(members_sorted)
+    stack_label = f"{stack_n}-stack" if stack_n > 0 else "-"
+
     return {
-        "title": f"👥 Party Stack Detected — {side}",
+        "title": f"👥 Party Stack — {side}{wl}",
         "description": "",
         "fields": [
-            {"name": "Party ID", "value": str(party_id), "inline": True},
-            {"name": "Members", "value": member_val, "inline": False},
+            {"name": "Stack", "value": stack_label, "inline": True},
+            {"name": "Members", "value": members_val, "inline": False},
+            {"name": "Match", "value": f"{mode_label} • {dur_label}", "inline": True},
+            {"name": "Side", "value": side, "inline": True},
+            {"name": "Status", "value": "⏳ Match analysis pending — detailed breakdown coming shortly.", "inline": False},
         ],
         "footer": {"text": f"Match ID: {match_id}"},
         "timestamp": timestamp,
