@@ -14,7 +14,7 @@ from typing import Dict, Any
 
 from bot.config import CONFIG
 from bot.throttle import throttle
-from bot.fetch import fetch_full_match
+from bot.stratz import fetch_full_match
 from bot.formatter import (
     format_match_embed,
     build_discord_embed,
@@ -37,9 +37,14 @@ _MIN_EXPIRY = 300          # 5 minutes
 _MAX_EXPIRY = 10800       # 3 hours
 
 # Recheck window: env override with PENDING_RECHECK_SEC
-_DEFAULT_RECHECK = 600     # 10 minutes
+_DEFAULT_RECHECK = 300     # 5 minutes
 _MIN_RECHECK = 60          # 60s
 _MAX_RECHECK = 3600        # 60 minutes
+
+# Pending re-poll cap per run: env override with PENDING_MAX_CHECKS_PER_RUN
+_DEFAULT_MAX_CHECKS_PER_RUN = 8
+_MIN_MAX_CHECKS_PER_RUN = 1
+_MAX_MAX_CHECKS_PER_RUN = 50
 
 
 def _env_expiry_seconds() -> int:
@@ -51,6 +56,17 @@ def _env_expiry_seconds() -> int:
         except Exception:
             pass
     return _DEFAULT_EXPIRY
+
+
+def _env_max_checks_per_run() -> int:
+    raw = (os.getenv("PENDING_MAX_CHECKS_PER_RUN") or "").strip()
+    if raw.isdigit():
+        try:
+            v = int(raw)
+            return max(_MIN_MAX_CHECKS_PER_RUN, min(_MAX_MAX_CHECKS_PER_RUN, v))
+        except Exception:
+            pass
+    return _DEFAULT_MAX_CHECKS_PER_RUN
 
 
 def _entry_expiry_seconds(entry: Dict[str, Any]) -> int:
@@ -307,8 +323,10 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
 
     now_epoch = time.time()
     expiry_sec_env = _env_expiry_seconds()
+    max_checks_per_run = _env_max_checks_per_run()
+    checks_used = 0
 
-    for key, entry in list(pending_map.items()):
+    for key, entry in sorted(list(pending_map.items()), key=lambda kv: _posted_at_epoch(kv[1])):
         if not isinstance(entry, dict):
             continue
 
@@ -327,14 +345,17 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
         if posted_at_epoch > 0 and (now_epoch - posted_at_epoch) >= expires_after:
             try:
                 embed = _expire_pending_snapshot(entry)
-                ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                ok, code, _ = edit_discord_message(message_id, embed, base_url, exact_base=True, structured=True)
                 if ok:
                     print(f"🗑️ Expired fallback for match {match_id} (steam {steam_id})")
                     pending_map.pop(key, None)
                 else:
-                    if _abort_if_blocked():
-                        return False
-                    print(f"⚠️ Failed to mark expired for match {match_id} (steam {steam_id}) — will retry later")
+                    if code == "not_found":
+                        pending_map.pop(key, None)
+                    else:
+                        if _abort_if_blocked():
+                            return False
+                        print(f"⚠️ Failed to mark expired for match {match_id} (steam {steam_id}) — will retry later")
             except Exception as e:
                 print(f"❌ Error expiring pending entry for match {match_id} (steam {steam_id}): {e}")
             time.sleep(0.3)
@@ -347,8 +368,12 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
 
         # Attempt upgrade
         try:
+            if checks_used >= max_checks_per_run:
+                continue
+
             throttle()
             data = fetch_full_match(int(match_id))
+            checks_used += 1
             entry["lastCheckedAt"] = now_iso()  # record attempt regardless of outcome
 
             if not data or (isinstance(data, dict) and data.get("error") == "quota_exceeded"):
@@ -379,21 +404,25 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
             except Exception:
                 discord_id = ""
 
-            ok = edit_discord_message(
+            ok, code, _ = edit_discord_message(
                 message_id,
                 embed,
                 base_url,
                 exact_base=True,
                 context={"discord_id": discord_id} if discord_id else None,
+                structured=True,
             )
             if ok:
                 print(f"🔁 Upgraded fallback → full embed for match {match_id} (steam {steam_id})")
                 state[str(steam_id)] = match_id
                 pending_map.pop(key, None)
             else:
-                if _abort_if_blocked():
-                    return False
-                print(f"⚠️ Failed to upgrade (edit) for match {match_id} (steam {steam_id}) — will retry later")
+                if code == "not_found":
+                    pending_map.pop(key, None)
+                else:
+                    if _abort_if_blocked():
+                        return False
+                    print(f"⚠️ Failed to upgrade (edit) for match {match_id} (steam {steam_id}) — will retry later")
 
         except Exception as e:
             print(f"❌ Error building/upgrading embed for match {match_id} (steam {steam_id}): {e}")
@@ -403,7 +432,7 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
     # ---- Party pending upgrades/expiry (Phase 2b) ----
     party_pending_map = state.get("partyPending") or {}
     if isinstance(party_pending_map, dict) and party_pending_map:
-        for key, entry in list(party_pending_map.items()):
+        for key, entry in sorted(list(party_pending_map.items()), key=lambda kv: _posted_at_epoch(kv[1])):
             if not isinstance(entry, dict):
                 continue
 
@@ -434,14 +463,17 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                 try:
                     snap = entry.get("snapshot") or {}
                     embed = _build_party_expired_embed(int(match_id), str(party_id), int(is_radiant), snap)
-                    ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                    ok, code, _ = edit_discord_message(message_id, embed, base_url, exact_base=True, structured=True)
                     if ok:
                         print(f"🗑️ Expired party pending for match {match_id} (party {party_id}, side {is_radiant})")
                         party_pending_map.pop(key, None)
                     else:
-                        if _abort_if_blocked():
-                            return False
-                        print(f"⚠️ Failed to mark party expired for match {match_id} (party {party_id}) — will retry later")
+                        if code == "not_found":
+                            party_pending_map.pop(key, None)
+                        else:
+                            if _abort_if_blocked():
+                                return False
+                            print(f"⚠️ Failed to mark party expired for match {match_id} (party {party_id}) — will retry later")
                 except Exception as e:
                     print(f"❌ Error expiring party pending entry for match {match_id} (party {party_id}): {e}")
                 time.sleep(0.3)
@@ -453,8 +485,12 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                 continue
 
             try:
+                if checks_used >= max_checks_per_run:
+                    continue
+
                 throttle()
                 data = fetch_full_match(int(match_id))
+                checks_used += 1
                 entry["lastCheckedAt"] = now_iso()
 
                 if not data or (isinstance(data, dict) and data.get("error") == "quota_exceeded"):
@@ -484,14 +520,17 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                     continue
 
                 embed = _build_party_upgrade_embed(int(match_id), str(party_id), int(is_radiant), members)
-                ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                ok, code, _ = edit_discord_message(message_id, embed, base_url, exact_base=True, structured=True)
                 if ok:
                     print(f"🔁 Upgraded party pending → upgraded embed for match {match_id} (party {party_id}, side {is_radiant})")
                     party_pending_map.pop(key, None)
                 else:
-                    if _abort_if_blocked():
-                        return False
-                    print(f"⚠️ Failed to upgrade party (edit) for match {match_id} (party {party_id}) — will retry later")
+                    if code == "not_found":
+                        party_pending_map.pop(key, None)
+                    else:
+                        if _abort_if_blocked():
+                            return False
+                        print(f"⚠️ Failed to upgrade party (edit) for match {match_id} (party {party_id}) — will retry later")
 
             except Exception as e:
                 print(f"❌ Error upgrading party pending entry for match {match_id} (party {party_id}): {e}")
@@ -504,7 +543,7 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
     duel_pending_map = state.get("duelPending") or {}
     if isinstance(duel_pending_map, dict) and duel_pending_map:
         guild_ids = set((CONFIG.get("players") or {}).keys())
-        for key, entry in list(duel_pending_map.items()):
+        for key, entry in sorted(list(duel_pending_map.items()), key=lambda kv: _posted_at_epoch(kv[1])):
             if not isinstance(entry, dict):
                 continue
 
@@ -523,14 +562,17 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                 try:
                     snap = entry.get("snapshot") or {}
                     embed = _build_duel_expired_embed(int(match_id), snap)
-                    ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                    ok, code, _ = edit_discord_message(message_id, embed, base_url, exact_base=True, structured=True)
                     if ok:
                         print(f"🗑️ Expired duel pending for match {match_id}")
                         duel_pending_map.pop(str(key), None)
                     else:
-                        if _abort_if_blocked():
-                            return False
-                        print(f"⚠️ Failed to mark duel expired for match {match_id} — will retry later")
+                        if code == "not_found":
+                            duel_pending_map.pop(str(key), None)
+                        else:
+                            if _abort_if_blocked():
+                                return False
+                            print(f"⚠️ Failed to mark duel expired for match {match_id} — will retry later")
                 except Exception as e:
                     print(f"❌ Error expiring duel pending entry for match {match_id}: {e}")
                 time.sleep(0.3)
@@ -542,8 +584,12 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                 continue
 
             try:
+                if checks_used >= max_checks_per_run:
+                    continue
+
                 throttle()
                 data = fetch_full_match(int(match_id))
+                checks_used += 1
                 entry["lastCheckedAt"] = now_iso()
 
                 if not data or (isinstance(data, dict) and data.get("error") == "quota_exceeded"):
@@ -561,14 +607,17 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                     continue
 
                 embed = _build_duel_upgrade_embed(int(match_id), radiant, dire)
-                ok = edit_discord_message(message_id, embed, base_url, exact_base=True)
+                ok, code, _ = edit_discord_message(message_id, embed, base_url, exact_base=True, structured=True)
                 if ok:
                     print(f"🔁 Upgraded duel pending → upgraded embed for match {match_id}")
                     duel_pending_map.pop(str(key), None)
                 else:
-                    if _abort_if_blocked():
-                        return False
-                    print(f"⚠️ Failed to upgrade duel (edit) for match {match_id} — will retry later")
+                    if code == "not_found":
+                        duel_pending_map.pop(str(key), None)
+                    else:
+                        if _abort_if_blocked():
+                            return False
+                        print(f"⚠️ Failed to upgrade duel (edit) for match {match_id} — will retry later")
 
             except Exception as e:
                 print(f"❌ Error upgrading duel pending entry for match {match_id}: {e}")
