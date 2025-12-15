@@ -162,7 +162,7 @@ def build_party_fallback_embed(
     duration_seconds: int | None = None,
     is_victory: bool | None = None,
 ) -> dict:
-    """Build a richer fallback embed for a detected party stack (Phase 2c pending parity)."""
+    """Build a party pending embed with parity to individual pending match embeds."""
     from datetime import datetime, timezone
 
     # Prefer stable ordering: Steam32 ascending (deterministic).
@@ -174,15 +174,6 @@ def build_party_fallback_embed(
     except Exception:
         members_sorted = list(members or [])
 
-    side = "Radiant" if int(is_radiant) == 1 else "Dire"
-
-    # Win/Loss label: derive from is_victory when provided, else omit.
-    wl = ""
-    if is_victory is True:
-        wl = " • Win"
-    elif is_victory is False:
-        wl = " • Loss"
-
     # Resolve member display names:
     # Prefer guild nickname via CONFIG['players'][steam32], else fall back to Steam name fields, else steam32 id.
     try:
@@ -191,7 +182,7 @@ def build_party_fallback_embed(
         CONFIG = {}
 
     lines: list[str] = []
-    for p in members_sorted:
+    for p in (members_sorted or []):
         sid = p.get("steamAccountId")
         sid_str = str(sid) if sid is not None else ""
 
@@ -264,28 +255,42 @@ def build_party_fallback_embed(
         except Exception:
             a = 0
 
-        lines.append(f"{name} — {hero} ({k} / {d} / {a})")
+        lines.append(f"{name} — {hero} — {k} / {d} / {a}")
 
     members_val = "\n".join(lines) if lines else "-"
 
     mode_label = _human_game_mode(game_mode)
     dur_label = _format_duration_seconds(duration_seconds or 0)
 
+    stack_n = len(members_sorted or [])
+    stack_label = f"{stack_n}-stack" if stack_n > 0 else "-"
+
+    wl = ""
+    if is_victory is True:
+        wl = "Win"
+    elif is_victory is False:
+        wl = "Loss"
+
+    title = f"⏳ Party (Pending Stats) — {stack_label}"
+    if wl:
+        title = f"{title} — {wl}"
+
     now = datetime.now(timezone.utc).astimezone()
     timestamp = now.isoformat()
 
-    stack_n = len(members_sorted)
-    stack_label = f"{stack_n}-stack" if stack_n > 0 else "-"
-
     return {
-        "title": f"👥 Party Stack — {side}{wl}",
+        "title": title,
         "description": "",
         "fields": [
-            {"name": "Stack", "value": stack_label, "inline": True},
-            {"name": "Members", "value": members_val, "inline": False},
-            {"name": "Match", "value": f"{mode_label} • {dur_label}", "inline": True},
-            {"name": "Side", "value": side, "inline": True},
-            {"name": "Status", "value": "⏳ Match analysis pending — detailed breakdown coming shortly.", "inline": False},
+            {"name": "⚙️ Mode", "value": mode_label, "inline": True},
+            {"name": "⏱️ Duration", "value": dur_label, "inline": True},
+            {"name": "👥 Stack", "value": stack_label, "inline": True},
+            {"name": "🧑‍🤝‍🧑 Members", "value": members_val, "inline": False},
+            {
+                "name": "⚠️ Status",
+                "value": "Impact score not yet processed by Stratz — detailed analysis will appear later.",
+                "inline": False,
+            },
         ],
         "footer": {"text": f"Match ID: {match_id}"},
         "timestamp": timestamp,
