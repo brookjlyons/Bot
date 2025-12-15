@@ -286,8 +286,14 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
             party_posted = state.setdefault("partyPosted", {})
             party_pending = state.setdefault("partyPending", {})
 
+            guild_ids = set((CONFIG.get("players") or {}).keys())
+
             parties: dict[tuple[str, int], list[dict]] = {}
             for p in match_players:
+                # Only consider configured guild members for party posts.
+                sid = p.get("steamAccountId")
+                if sid is None or str(sid) not in guild_ids:
+                    continue
                 pid = p.get("partyId")
                 if pid is None:
                     continue
@@ -342,7 +348,6 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                     }
 
             # Guild duel: any match where we have >=1 configured guild member on each side.
-            guild_ids = set((CONFIG.get("players") or {}).keys())
             radiant = [p for p in match_players if p.get("isRadiant") and str(p.get("steamAccountId")) in guild_ids]
             dire = [p for p in match_players if (not p.get("isRadiant")) and str(p.get("steamAccountId")) in guild_ids]
 
