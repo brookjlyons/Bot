@@ -103,7 +103,7 @@ def resolve_webhook_for_post(webhook_url: str | None) -> str | None:
     return _ensure_webhook_url(webhook_url)
 
 # ── Outcome taxonomy (Phase 4) ────────────────────────────────────────────────
-# code ∈ {"ok","rate_limited","hard_block","other_error"}
+# code ∈ {"ok","rate_limited","hard_block","not_found","other_error"}
 
 
 def _ok(msg_id: str | None, structured: bool):
@@ -299,6 +299,9 @@ def edit_discord_message(
             time.sleep(0.6 + random.uniform(0.05, 0.3))
             return True if not structured else (True, "ok", 0.0)
 
+        if r.status_code in (404, 410):
+            return False if not structured else (False, "not_found", 0.0)
+
         if r.status_code == 429:
             backoff = _parse_retry_after(r)
             print(f"⚠️ Edit rate limited — retry_after={backoff:.2f}s")
@@ -310,6 +313,8 @@ def edit_discord_message(
             rr = requests.patch(url, json=payload, timeout=10)
             if rr.status_code in (200, 204):
                 return True if not structured else (True, "ok", 0.0)
+            if rr.status_code in (404, 410):
+                return False if not structured else (False, "not_found", 0.0)
             if _looks_like_cloudflare_1015(rr):
                 _HARD_BLOCKED = True
                 print("🛑 Cloudflare 1015 on edit retry — aborting run.")
