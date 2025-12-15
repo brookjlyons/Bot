@@ -1,3 +1,5 @@
+# bot/runner_pkg/players.py
+
 import json
 import time
 import os
@@ -17,82 +19,82 @@ from .webhook_client import (
     webhook_cooldown_remaining,
     is_hard_blocked,
     strip_query,
-    resolve_webhook_for_post,  # get the actual posting URL
+    resolve_webhook_for_post,
 )
-from .timeutil import now_iso
+from bot.runner_pkg.pending import process_pending_upgrades_and_expiry
+from bot.runner_pkg.timeutil import now_iso
 
 
-def _debug_level() -> int:
-    raw = (os.getenv("DEBUG_MODE") or "0").strip().lower()
+def _private_ids() -> set[int]:
+    """
+    Steam IDs with private match data. These players cannot be processed beyond fallback.
+    Accept both env and config overrides; env wins.
+    """
+    out: set[int] = set()
+
+    raw_env = (os.getenv("PRIVATE_DATA_STEAM_IDS") or "").strip()
+    if raw_env:
+        for part in raw_env.replace(",", " ").split():
+            try:
+                out.add(int(part.strip()))
+            except Exception:
+                pass
+
     try:
-        return int(raw)
+        cfg = CONFIG.get("private_data_steam_ids") or []
+        for sid in cfg:
+            try:
+                out.add(int(sid))
+            except Exception:
+                pass
     except Exception:
-        return 1 if raw in {"1", "true", "yes", "on"} else 0
+        pass
 
-
-def _truthy(v: str | None) -> bool:
-    return str(v or "").strip().lower() in {"1", "true", "yes", "on"}
+    return out
 
 
 def _force_fallback_for(steam_id: int) -> bool:
     """
-    Test hook: force the fallback path even if IMP is ready.
-    Active only when DEBUG_MODE > 0 and TEST_FORCE_FALLBACK is truthy.
-    Optional scoping via TEST_FORCE_FALLBACK_ONLY_FOR=comma,separated,steam32Ids
+    TEST hook: force fallback embed even if IMP is ready.
+    Controlled by env FORCE_FALLBACK_STEAM_IDS: comma/space-separated list.
     """
-    if _debug_level() <= 0:
+    raw = (os.getenv("FORCE_FALLBACK_STEAM_IDS") or "").strip()
+    if not raw:
         return False
-    if not _truthy(os.getenv("TEST_FORCE_FALLBACK")):
-        return False
+    for part in raw.replace(",", " ").split():
+        try:
+            if int(part.strip()) == int(steam_id):
+                return True
+        except Exception:
+            continue
+    return False
 
-    allow = (os.getenv("TEST_FORCE_FALLBACK_ONLY_FOR") or "").strip()
-    if not allow:
-        return True
 
-    allow_set: set[int] = set()
-    for part in allow.split(","):
-        part = part.strip()
-        if part.isdigit():
-            try:
-                allow_set.add(int(part))
-            except Exception:
-                continue
+def _coerce_int(v) -> int | None:
     try:
-        return int(steam_id) in allow_set
+        return int(v)
     except Exception:
-        return False
+        return None
 
 
-def _private_ids() -> set[int]:
-    """Return a set of Steam32 IDs that should use the private-data path."""
-    ids = set()
-    try:
-        for _, sid in (CONFIG.get("players_private") or {}).items():
-            try:
-                ids.add(int(sid))
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return ids
-
-
-def process_player(player_name: str, steam_id: int, last_posted_id: str | None, state: dict) -> bool:
-    """Fetch and format the latest match for a player."""
-    # 🔎 Resolve guild nickname from config when available (Steam32 → nickname)
-    try:
-        nickname = (CONFIG.get("players") or {}).get(str(steam_id))
-        if isinstance(nickname, str) and nickname.strip():
-            player_name = nickname.strip()
-    except Exception:
-        # Non-fatal; keep provided player_name
-        pass
+def process_player(steam_id: int, player_name: str, state: dict) -> bool:
+    """
+    Process one player:
+    - Determine if new match exists
+    - If IMP ready: post full embed (or edit pending message)
+    - If IMP not ready: post fallback + add to pending
+    """
+    last_posted_id = _coerce_int(state.get(str(steam_id)))
 
     # 🔔 Resolve Discord ID from config (if available)
     try:
         discord_id = (CONFIG.get("discord_ids") or {}).get(player_name, "")
     except Exception:
         discord_id = ""
+
+    # Pass 0: pending upgrades/expiry before doing any new work
+    if not process_pending_upgrades_and_expiry(state):
+        return False
 
     if is_hard_blocked():
         return False
@@ -140,7 +142,6 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
 
             embed = build_fallback_embed(result)
 
-            # Use the exact webhook used for posting (after overrides) when storing state
             resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
             if CONFIG.get("webhook_enabled") and resolved:
                 # No mention here: private-data fallback should not ping the player
@@ -200,6 +201,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                         "messageId": msg_id,
                         "postedAt": time.time(),          # legacy float
                         "postedAtIso": now_iso(),         # ISO
+                        "recheckWindowSec": 300,          # 5 minutes
                         "webhookBase": strip_query(resolved),
                         "snapshot": result,
                     }
@@ -275,26 +277,36 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
     except Exception as e:
         print(f"❌ Error formatting or posting match for {player_name}: {e}")
 
-    # ── Phase 2a: Party stack + guild duel detection (fallback only) ────────────
-    # This is deliberately isolated and guarded to avoid breaking existing flows.
+    # ── Party & Duel (fallback-only) — do not affect main per-player pipeline ──
     try:
-        active_webhook = (CONFIG.get("webhooks") or {}).get("activeMembers")
-        if active_webhook:
-            match_players = match_data.get("players") or []
+        party_posted = state.setdefault("partyPosted", set())
+        duel_posted = state.setdefault("duelPosted", set())
 
-            # Party stacks: any partyId with >= 2 members (per side) in this match.
-            party_posted = state.setdefault("partyPosted", {})
-            party_pending = state.setdefault("partyPending", {})
+        try:
+            party_posted = set(party_posted) if not isinstance(party_posted, set) else party_posted
+        except Exception:
+            party_posted = set()
 
-            guild_ids = set((CONFIG.get("players") or {}).keys())
+        try:
+            duel_posted = set(duel_posted) if not isinstance(duel_posted, set) else duel_posted
+        except Exception:
+            duel_posted = set()
 
+        state["partyPosted"] = party_posted
+        state["duelPosted"] = duel_posted
+
+        guild_ids = set((CONFIG.get("players") or {}).keys())
+
+        # Gather guild players in this match
+        guild_players = [p for p in match_data.get("players", []) if str(p.get("steamAccountId")) in guild_ids]
+        if guild_players:
+            # Group by (partyId, side)
             parties: dict[tuple[str, int], list[dict]] = {}
-            for p in match_players:
-                # Only consider configured guild members for party posts.
-                sid = p.get("steamAccountId")
-                if sid is None or str(sid) not in guild_ids:
-                    continue
-                pid = p.get("partyId")
+            for p in guild_players:
+                try:
+                    pid = p.get("partyId")
+                except Exception:
+                    pid = None
                 if pid is None:
                     continue
                 side = 1 if p.get("isRadiant") else 0
@@ -315,72 +327,87 @@ def process_player(player_name: str, steam_id: int, last_posted_id: str | None, 
                 except Exception:
                     party_is_victory = None
 
-                embed = build_party_fallback_embed(
-                    match_id,
-                    int(pid) if str(pid).isdigit() else pid,
-                    side,
-                    members,
-                    match_data.get("gameMode"),
-                    match_data.get("durationSeconds"),
-                    party_is_victory,
-                )
-                posted, msg_id = post_to_discord_embed(
-                    embed,
-                    active_webhook,
-                    want_message_id=True,
-                )
-                if posted and msg_id:
-                    base = strip_query(active_webhook)
-                    party_posted[party_key] = {
-                        "matchId": match_id,
-                        "partyId": str(pid),
-                        "messageId": str(msg_id),
-                        "webhookBase": base,
-                        "postedAt": now_iso(),
-                    }
-                    party_pending[party_key] = {
-                        "matchId": match_id,
-                        "partyId": str(pid),
-                        "messageId": str(msg_id),
-                        "webhookBase": base,
-                        "postedAt": now_iso(),
-                        "snapshot": {"memberCount": len(members)},
-                    }
+                # Basic "guild-only" member list
+                member_rows = []
+                for m in members:
+                    sid = str(m.get("steamAccountId") or "").strip()
+                    if not sid:
+                        continue
+                    nick = (CONFIG.get("players") or {}).get(sid) or sid
+                    hero = m.get("hero", {}) or {}
+                    hero_name = hero.get("displayName") or hero.get("name") or "?"
+                    k = (m.get("kills") or 0)
+                    d = (m.get("deaths") or 0)
+                    a = (m.get("assists") or 0)
+                    member_rows.append({"steamId": sid, "nickname": nick, "hero": hero_name, "k": k, "d": d, "a": a})
 
-            # Guild duel: any match where we have >=1 configured guild member on each side.
-            radiant = [p for p in match_players if p.get("isRadiant") and str(p.get("steamAccountId")) in guild_ids]
-            dire = [p for p in match_players if (not p.get("isRadiant")) and str(p.get("steamAccountId")) in guild_ids]
+                snapshot = {
+                    "matchId": match_id,
+                    "partyId": pid,
+                    "isRadiant": side == 1,
+                    "isVictory": party_is_victory,
+                    "members": member_rows,
+                    "memberCount": len(member_rows),
+                }
 
-            if radiant and dire:
-                duel_posted = state.setdefault("duelPosted", {})
-                duel_pending = state.setdefault("duelPending", {})
-                duel_key = str(match_id)
-                if duel_key not in duel_posted:
-                    embed = build_duel_fallback_embed(match_id, radiant, dire)
+                embed = build_party_fallback_embed(snapshot)
+
+                resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
+                if CONFIG.get("webhook_enabled") and resolved:
                     posted, msg_id = post_to_discord_embed(
                         embed,
-                        active_webhook,
+                        resolved,
                         want_message_id=True,
                     )
-                    if posted and msg_id:
-                        base = strip_query(active_webhook)
-                        duel_posted[duel_key] = {
+                    if posted:
+                        base = strip_query(resolved)
+                        party_pending = state.setdefault("partyPending", {})
+                        party_pending[party_key] = {
                             "matchId": match_id,
-                            "radiantIds": [str(p.get("steamAccountId")) for p in radiant],
-                            "direIds": [str(p.get("steamAccountId")) for p in dire],
+                            "partyId": pid,
+                            "isRadiant": 1 if side == 1 else 0,
                             "messageId": str(msg_id),
                             "webhookBase": base,
                             "postedAt": now_iso(),
+                            "snapshot": {"memberCount": len(member_rows)},
                         }
-                        duel_pending[duel_key] = {
-                            "matchId": match_id,
-                            "radiantIds": [str(p.get("steamAccountId")) for p in radiant],
-                            "direIds": [str(p.get("steamAccountId")) for p in dire],
-                            "messageId": str(msg_id),
-                            "webhookBase": base,
-                            "postedAt": now_iso(),
-                            "snapshot": {"radiantCount": len(radiant), "direCount": len(dire)},
-                        }
+                        party_posted.add(party_key)
+                        print(f"👥 Party fallback posted & tracked: {party_key}")
+
+            # Duel detection: must have at least 1 guild on each side
+            radiant = [p for p in guild_players if p.get("isRadiant")]
+            dire = [p for p in guild_players if not p.get("isRadiant")]
+            if radiant and dire:
+                duel_key = str(match_id)
+                if duel_key not in duel_posted:
+                    snapshot = {
+                        "matchId": match_id,
+                        "radiant": [{"steamId": str(p.get("steamAccountId") or "")} for p in radiant],
+                        "dire": [{"steamId": str(p.get("steamAccountId") or "")} for p in dire],
+                    }
+                    embed = build_duel_fallback_embed(snapshot)
+
+                    resolved = resolve_webhook_for_post(CONFIG.get("webhook_url"))
+                    if CONFIG.get("webhook_enabled") and resolved:
+                        posted, msg_id = post_to_discord_embed(
+                            embed,
+                            resolved,
+                            want_message_id=True,
+                        )
+                        if posted:
+                            base = strip_query(resolved)
+                            duel_pending = state.setdefault("duelPending", {})
+                            duel_pending[duel_key] = {
+                                "matchId": match_id,
+                                "radiantIds": [str(p.get("steamAccountId")) for p in radiant],
+                                "direIds": [str(p.get("steamAccountId")) for p in dire],
+                                "messageId": str(msg_id),
+                                "webhookBase": base,
+                                "postedAt": now_iso(),
+                                "snapshot": {"radiantCount": len(radiant), "direCount": len(dire)},
+                            }
+                            duel_posted.add(duel_key)
+                            print(f"⚔️ Duel fallback posted & tracked: {duel_key}")
     except Exception as e:
         print(f"⚠️ Party/Duel detection skipped due to error: {e}")
 
