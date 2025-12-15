@@ -85,7 +85,10 @@ def _run_discord_bot_loop(token: str) -> None:
                 mentions = getattr(message, "mentions", None) or []
                 bot_user = getattr(client, "user", None)
                 bot_id = getattr(bot_user, "id", None)
-                mentions = [u for u in mentions if u is not None and getattr(u, "id", None) != bot_id]
+                mentions = [
+                    u for u in mentions
+                    if u is not None and getattr(u, "id", None) != bot_id
+                ]
                 if mentions:
                     target_user = mentions[0]
 
@@ -96,7 +99,10 @@ def _run_discord_bot_loop(token: str) -> None:
             target_id = getattr(target_user, "id", None)
             channel_name = getattr(channel, "name", "unknown")
 
-            print(f"🔥 matchbot insult trigger in #{channel_name} (target_id={target_id})", flush=True)
+            print(
+                f"🔥 matchbot insult trigger in #{channel_name} (target_id={target_id})",
+                flush=True,
+            )
 
             try:
                 seed = int(getattr(message, "id", 0) or 0)
@@ -132,12 +138,15 @@ def _run_discord_bot_loop(token: str) -> None:
 
 def start_discord_bot_if_configured() -> None:
     """
-    Starts a background Discord gateway bot if DISCORD_TOKEN is present.
+    Starts a background Discord gateway bot if DISCORD_BOT_TOKEN is present.
     Safe to call multiple times; only starts once.
     """
-    token = os.environ.get("DISCORD_TOKEN", "").strip()
+    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
     if not token:
-        print("ℹ️ DISCORD_TOKEN not set; Discord gateway bot not started.", flush=True)
+        print(
+            "ℹ️ DISCORD_BOT_TOKEN not set; Discord gateway bot not started.",
+            flush=True,
+        )
         return
 
     global _discord_thread_started
@@ -153,7 +162,11 @@ def start_discord_bot_if_configured() -> None:
 
 @app.route("/")
 def index():
-    return "✅ GuildBot Flask server is running. Try /run to trigger a full match check. Use /health for keepalive."
+    return (
+        "✅ GuildBot Flask server is running. "
+        "Try /run to trigger a full match check. "
+        "Use /health for keepalive."
+    )
 
 
 @app.route("/health")
