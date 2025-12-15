@@ -20,7 +20,7 @@ _discord_thread_started = False
 def safe_run_bot():
     try:
         if run_lock.locked():
-            print("⏳ Skipping /run trigger: run already in progress.", flush=True)
+            print("🛑 GuildBot is already running; skipping /run trigger.", flush=True)
             return
 
         with run_lock:
@@ -67,26 +67,31 @@ def _run_discord_bot_loop(token: str) -> None:
 
             content = getattr(message, "content", "") or ""
             content_l = content.lower()
+
             has_matchbot = re.search(r"\bmatchbot\b", content_l) is not None
             has_insult = re.search(r"\binsult\b", content_l) is not None
             has_me = re.search(r"\bme\b", content_l) is not None
 
+            # Require BOTH "matchbot" and "insult" anywhere in the message.
             if not (has_matchbot and has_insult):
                 return
 
-            # Targeting rule: requires either "me" OR a real @mention. If both exist, "me" wins.
+            # Targeting rule: requires either the word "me" or a real @mention.
+            # If both exist, "me" wins.
             target_user = None
             if has_me:
                 target_user = getattr(message, "author", None)
             else:
                 mentions = getattr(message, "mentions", None) or []
+                bot_user = getattr(client, "user", None)
+                bot_id = getattr(bot_user, "id", None)
+                mentions = [u for u in mentions if u is not None and getattr(u, "id", None) != bot_id]
                 if mentions:
                     target_user = mentions[0]
 
             if target_user is None:
                 return
 
-            author = getattr(message, "author", None)
             channel = getattr(message, "channel", None)
             target_id = getattr(target_user, "id", None)
             channel_name = getattr(channel, "name", "unknown")
@@ -117,12 +122,12 @@ def _run_discord_bot_loop(token: str) -> None:
         try:
             await client.start(token)
         except Exception as e:
-            print(f"⚠️ Discord client loop ended: {e}", flush=True)
+            print(f"❌ Discord bot stopped (start failed): {e}", flush=True)
 
     try:
         asyncio.run(runner())
     except Exception as e:
-        print(f"⚠️ Discord bot thread crashed: {e}", flush=True)
+        print(f"❌ Discord bot thread crashed: {e}", flush=True)
 
 
 def start_discord_bot_if_configured() -> None:
