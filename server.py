@@ -7,6 +7,7 @@ import traceback
 import os
 import asyncio
 import random
+import re
 from feedback.catalog.insults import MATCHBOT_INSULTS
 
 app = Flask(__name__)
@@ -17,29 +18,33 @@ _discord_thread_started = False
 
 
 def safe_run_bot():
-    if run_lock.locked():
-        print("🛑 GuildBot is already running. Skipping.", flush=True)
-        return
-    with run_lock:
-        try:
-            print("🔐 Running GuildBot.", flush=True)
-            run_bot()
-            print("✅ GuildBot complete.", flush=True)
-        except Exception:
-            print("❌ Unhandled exception in GuildBot thread:", flush=True)
-            traceback.print_exc()
-
-
-def _run_discord_bot_loop(token: str):
-    # Runs in a background thread with its own event loop.
     try:
-        import discord  # type: ignore
+        if run_lock.locked():
+            print("⏳ Skipping /run trigger: run already in progress.", flush=True)
+            return
+
+        with run_lock:
+            print("🚀 /run trigger received — starting bot run...", flush=True)
+            run_bot()
+            print("✅ Bot run complete.", flush=True)
+
+    except Exception:
+        print("❌ Bot run crashed:", flush=True)
+        traceback.print_exc()
+
+
+def _run_discord_bot_loop(token: str) -> None:
+    """
+    Run the Discord gateway bot in its own thread.
+    We do NOT tie this to the Flask request lifecycle.
+    """
+    try:
+        import discord  # local import so requirements without discord.py won't crash import-time
     except Exception as e:
-        print(f"⚠️ Discord bot disabled — failed to import discord.py: {e}", flush=True)
+        print(f"⚠️ discord.py not available: {e}", flush=True)
         return
 
     intents = discord.Intents.default()
-    # Required for reading message text (literal '@matchbot' trigger in a later session).
     intents.message_content = True
 
     client = discord.Client(intents=intents)
@@ -61,15 +66,32 @@ def _run_discord_bot_loop(token: str):
                     return
 
             content = getattr(message, "content", "") or ""
-            if "matchbot" not in content.lower():
+            content_l = content.lower()
+            has_matchbot = re.search(r"\bmatchbot\b", content_l) is not None
+            has_insult = re.search(r"\binsult\b", content_l) is not None
+            has_me = re.search(r"\bme\b", content_l) is not None
+
+            if not (has_matchbot and has_insult):
+                return
+
+            # Targeting rule: requires either "me" OR a real @mention. If both exist, "me" wins.
+            target_user = None
+            if has_me:
+                target_user = getattr(message, "author", None)
+            else:
+                mentions = getattr(message, "mentions", None) or []
+                if mentions:
+                    target_user = mentions[0]
+
+            if target_user is None:
                 return
 
             author = getattr(message, "author", None)
             channel = getattr(message, "channel", None)
-            author_id = getattr(author, "id", None)
+            target_id = getattr(target_user, "id", None)
             channel_name = getattr(channel, "name", "unknown")
 
-            print(f"🔥 matchbot trigger in #{channel_name} (author_id={author_id})", flush=True)
+            print(f"🔥 matchbot insult trigger in #{channel_name} (target_id={target_id})", flush=True)
 
             try:
                 seed = int(getattr(message, "id", 0) or 0)
@@ -80,10 +102,10 @@ def _run_discord_bot_loop(token: str):
                 else:
                     insult = "no insults loaded, but I'm still judging you."
 
-                if author_id is None:
+                if target_id is None:
                     await message.reply(insult)
                 else:
-                    await message.reply(f"<@{author_id}> {insult}")
+                    await message.reply(f"<@{target_id}> {insult}")
 
             except Exception as e:
                 print(f"⚠️ matchbot reply failed: {e}", flush=True)
@@ -95,21 +117,25 @@ def _run_discord_bot_loop(token: str):
         try:
             await client.start(token)
         except Exception as e:
-            print(f"❌ Discord bot stopped (start failed): {e}", flush=True)
+            print(f"⚠️ Discord client loop ended: {e}", flush=True)
 
     try:
         asyncio.run(runner())
     except Exception as e:
-        print(f"❌ Discord bot thread crashed: {e}", flush=True)
+        print(f"⚠️ Discord bot thread crashed: {e}", flush=True)
 
 
-def start_discord_bot_if_configured():
-    global _discord_thread_started
-    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+def start_discord_bot_if_configured() -> None:
+    """
+    Starts a background Discord gateway bot if DISCORD_TOKEN is present.
+    Safe to call multiple times; only starts once.
+    """
+    token = os.environ.get("DISCORD_TOKEN", "").strip()
     if not token:
-        print("ℹ️ Discord bot not started — DISCORD_BOT_TOKEN not set.", flush=True)
+        print("ℹ️ DISCORD_TOKEN not set; Discord gateway bot not started.", flush=True)
         return
 
+    global _discord_thread_started
     with _discord_thread_lock:
         if _discord_thread_started:
             return
