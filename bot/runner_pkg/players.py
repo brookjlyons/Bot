@@ -283,18 +283,29 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
 
     # ── Party & Duel (fallback-only) — do not affect main per-player pipeline ──
     try:
-        party_posted = state.setdefault("partyPosted", set())
-        duel_posted = state.setdefault("duelPosted", set())
+        party_posted = state.setdefault("partyPosted", {})
+        duel_posted = state.setdefault("duelPosted", {})
+
+        # Backward-compat: migrate legacy set/list shapes to dicts (JSON-safe) in-memory.
+        try:
+            if isinstance(party_posted, set):
+                party_posted = {str(k): True for k in party_posted}
+            elif isinstance(party_posted, list):
+                party_posted = {str(k): True for k in party_posted}
+            elif not isinstance(party_posted, dict):
+                party_posted = {}
+        except Exception:
+            party_posted = {}
 
         try:
-            party_posted = set(party_posted) if not isinstance(party_posted, set) else party_posted
+            if isinstance(duel_posted, set):
+                duel_posted = {str(k): True for k in duel_posted}
+            elif isinstance(duel_posted, list):
+                duel_posted = {str(k): True for k in duel_posted}
+            elif not isinstance(duel_posted, dict):
+                duel_posted = {}
         except Exception:
-            party_posted = set()
-
-        try:
-            duel_posted = set(duel_posted) if not isinstance(duel_posted, set) else duel_posted
-        except Exception:
-            duel_posted = set()
+            duel_posted = {}
 
         state["partyPosted"] = party_posted
         state["duelPosted"] = duel_posted
@@ -375,7 +386,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                             "postedAt": now_iso(),
                             "snapshot": {"memberCount": len(member_rows)},
                         }
-                        party_posted.add(party_key)
+                        party_posted[party_key] = True
                         print(f"👥 Party fallback posted & tracked: {party_key}")
 
             # Duel detection: must have at least 1 guild on each side
@@ -410,7 +421,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                                 "postedAt": now_iso(),
                                 "snapshot": {"radiantCount": len(radiant), "direCount": len(dire)},
                             }
-                            duel_posted.add(duel_key)
+                            duel_posted[duel_key] = True
                             print(f"⚔️ Duel fallback posted & tracked: {duel_key}")
     except Exception as e:
         print(f"⚠️ Party/Duel detection skipped due to error: {e}")
