@@ -14,7 +14,7 @@ import os
 from bot.formatter_pkg.stats_sets import NORMAL_STATS, TURBO_STATS
 from bot.formatter_pkg.mode import resolve_game_mode_name, is_turbo_mode
 from bot.formatter_pkg.util import normalize_hero_name, get_role, get_baseline
-from bot.formatter_pkg.embed import build_discord_embed, build_fallback_embed
+from bot.formatter_pkg.embed import build_discord_embed, build_fallback_embed, build_party_fallback_embed, build_duel_fallback_embed
 
 __all__ = [
     # constants
@@ -22,7 +22,7 @@ __all__ = [
     # main formatters
     "format_match_embed", "format_fallback_embed",
     # embed builders
-    "build_discord_embed", "build_fallback_embed",
+    "build_discord_embed", "build_fallback_embed", "build_party_fallback_embed", "build_duel_fallback_embed",
     # utilities (deprecated kept public)
     "normalize_hero_name", "get_role", "get_baseline",
 ]
