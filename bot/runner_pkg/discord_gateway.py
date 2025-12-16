@@ -130,3 +130,20 @@ def start_discord_gateway_if_configured() -> None:
     _discord_thread = t
     t.start()
 
+
+def discord_configured() -> bool:
+    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+    return bool(token)
+
+
+def discord_started() -> bool:
+    with _discord_thread_lock:
+        return bool(_discord_thread_started)
+
+
+def discord_thread_alive() -> bool:
+    t = _discord_thread
+    try:
+        return bool(t is not None and t.is_alive())
+    except Exception:
+        return False
