@@ -8,8 +8,27 @@ import traceback
 import os
 import time
 
-from bot.runner_pkg.discord_gateway import start_discord_gateway_if_configured
-import bot.runner_pkg.discord_gateway as discord_gateway
+try:
+    from bot.runner_pkg.discord_gateway import start_discord_gateway_if_configured
+    import bot.runner_pkg.discord_gateway as discord_gateway
+except Exception as e:
+    print(f"⚠️ Discord gateway import failed (ignored): {e}", flush=True)
+    start_discord_gateway_if_configured = None  # type: ignore
+
+    class _DiscordGatewayStub:
+        @staticmethod
+        def discord_configured() -> bool:
+            return False
+
+        @staticmethod
+        def discord_started() -> bool:
+            return False
+
+        @staticmethod
+        def discord_thread_alive() -> bool:
+            return False
+
+    discord_gateway = _DiscordGatewayStub()  # type: ignore
 
 
 app = Flask(__name__)
@@ -65,15 +84,18 @@ def health():
     except Exception:
         discord_thread_alive = False
 
+    started_at = run_started_at
     finished_at = last_run_finished_at
-    finished_age = int(now - finished_at) if finished_at else None
+    seconds_since_last_finish = int(now - finished_at) if finished_at else None
 
     payload = {
         "ok": True,
         "run_in_progress": running,
         "run_age_seconds": run_age,
+        "last_run_started_at": started_at,
         "last_run_finished_at": finished_at,
-        "last_run_finished_age_seconds": finished_age,
+        "seconds_since_last_finish": seconds_since_last_finish,
+        "last_run_finished_age_seconds": seconds_since_last_finish,
         "discord_configured": discord_configured,
         "discord_started": discord_started,
         "discord_thread_alive": discord_thread_alive,
@@ -106,7 +128,8 @@ def run():
 
 # Process boot hook: start Discord gateway once per process (idempotent).
 try:
-    start_discord_gateway_if_configured()
+    if start_discord_gateway_if_configured is not None:
+        start_discord_gateway_if_configured()
 except Exception as e:
     print(f"⚠️ Discord gateway start failed (ignored): {e}", flush=True)
 
