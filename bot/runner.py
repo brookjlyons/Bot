@@ -13,6 +13,28 @@ import time
 import os
 
 
+_LAST_RUN_STARTED_AT: float | None = None
+_LAST_RUN_FINISHED_AT: float | None = None
+
+
+def last_run_started_at() -> float | None:
+    return _LAST_RUN_STARTED_AT
+
+
+def last_run_finished_at() -> float | None:
+    return _LAST_RUN_FINISHED_AT
+
+
+def _mark_run_started() -> None:
+    global _LAST_RUN_STARTED_AT
+    _LAST_RUN_STARTED_AT = time.time()
+
+
+def _mark_run_finished() -> None:
+    global _LAST_RUN_FINISHED_AT
+    _LAST_RUN_FINISHED_AT = time.time()
+
+
 def _log_level() -> str:
     v = (os.getenv("GB_LOG_LEVEL") or "").strip().lower()
     return v or "info"
@@ -23,6 +45,7 @@ def _debug_enabled() -> bool:
 
 
 def run_bot():
+    _mark_run_started()
     print("🚀 GuildBot started")
 
     players = CONFIG.get("players") or {}
@@ -62,6 +85,7 @@ def run_bot():
         except Exception as e:
             print(f"⚠️ Failed to save state.json to GitHub Gist ({type(e).__name__}). Run ended without persisting state.")
 
+        _mark_run_finished()
         print("✅ GuildBot run complete.")
         return
 
@@ -117,6 +141,8 @@ def run_bot():
         print("📝 Updated state.json on GitHub Gist")
     except Exception as e:
         print(f"⚠️ Failed to save state.json to GitHub Gist ({type(e).__name__}). Run ended without persisting state.")
+
+    _mark_run_finished()
 
     if not _debug_enabled():
         if early_exit_reason:
