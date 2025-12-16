@@ -153,7 +153,26 @@ def _human_game_mode(game_mode: Any) -> str:
     return raw.replace("_", " ").strip().title()
 
 
-def build_party_fallback_embed(
+def _steam_to_name_map() -> Dict[str, str]:
+    """
+    CONFIG["players"] shape:
+      keys = names
+      values = Steam32 IDs
+    Return reverse mapping: steam32(str) -> name(str)
+    """
+    try:
+        from bot.config import CONFIG
+    except Exception:
+        CONFIG = {}
+
+    try:
+        cfg_players = (CONFIG.get("players") or {})
+        return {str(v): str(k) for (k, v) in cfg_players.items()}
+    except Exception:
+        return {}
+
+
+def _build_party_fallback_embed_from_parts(
     match_id: int,
     party_id: int,
     is_radiant: int,
@@ -174,12 +193,7 @@ def build_party_fallback_embed(
     except Exception:
         members_sorted = list(members or [])
 
-    # Resolve member display names:
-    # Prefer guild nickname via CONFIG['players'][steam32], else fall back to Steam name fields, else steam32 id.
-    try:
-        from bot.config import CONFIG
-    except Exception:
-        CONFIG = {}
+    steam_to_name = _steam_to_name_map()
 
     lines: list[str] = []
     for p in (members_sorted or []):
@@ -188,11 +202,10 @@ def build_party_fallback_embed(
 
         name = ""
         try:
-            nickname = (CONFIG.get("players") or {}).get(str(int(sid))) if sid is not None else None
-            if isinstance(nickname, str) and nickname.strip():
-                name = nickname.strip()
+            if sid is not None:
+                name = steam_to_name.get(str(int(sid))) or ""
         except Exception:
-            pass
+            name = ""
 
         if not name:
             # Best-effort Steam name fallbacks from match payload variants.
@@ -215,7 +228,7 @@ def build_party_fallback_embed(
                 pass
 
         if not name:
-            name = sid_str.strip() or "-"
+            name = sid_str.strip() or "Unknown"
 
         # Resolve hero name (best-effort from available fields; no invented hero lists).
         hero = ""
@@ -297,12 +310,96 @@ def build_party_fallback_embed(
     }
 
 
-def build_duel_fallback_embed(match_id: int, radiant: list[dict], dire: list[dict]) -> dict:
+def build_party_fallback_embed(
+    match_id: int | dict,
+    party_id: int | None = None,
+    is_radiant: int | None = None,
+    members: list[dict] | None = None,
+    game_mode: Any | None = None,
+    duration_seconds: int | None = None,
+    is_victory: bool | None = None,
+) -> dict:
+    """
+    Build a party pending embed.
+
+    Supports two call shapes:
+      1) build_party_fallback_embed(match_id, party_id, is_radiant, members, ...)
+      2) build_party_fallback_embed(snapshot_dict) where snapshot has:
+           matchId, partyId, isRadiant, isVictory, members
+    """
+    if isinstance(match_id, dict):
+        snap = match_id
+        try:
+            mid = int(snap.get("matchId") or 0)
+        except Exception:
+            mid = 0
+        try:
+            pid = int(snap.get("partyId") or 0)
+        except Exception:
+            pid = 0
+        ir = 1 if snap.get("isRadiant") in (1, True, "1", "true", "True") else 0
+        mem = snap.get("members") or []
+        gm = snap.get("gameMode")
+        dur = snap.get("durationSeconds")
+        iv = snap.get("isVictory")
+        return _build_party_fallback_embed_from_parts(
+            mid,
+            pid,
+            ir,
+            mem if isinstance(mem, list) else [],
+            game_mode=gm,
+            duration_seconds=dur if isinstance(dur, (int, float)) else None,
+            is_victory=iv if isinstance(iv, bool) else None,
+        )
+
+    return _build_party_fallback_embed_from_parts(
+        int(match_id),
+        int(party_id or 0),
+        int(is_radiant or 0),
+        members or [],
+        game_mode=game_mode,
+        duration_seconds=duration_seconds,
+        is_victory=is_victory,
+    )
+
+
+def build_duel_fallback_embed(match_id: int | dict, radiant: list[dict] | None = None, dire: list[dict] | None = None) -> dict:
     """Build a simple fallback embed for a detected guild duel (Phase 2a)."""
     from datetime import datetime, timezone
 
-    r_ids = [str(p.get("steamAccountId") or "") for p in (radiant or []) if str(p.get("steamAccountId") or "").strip()]
-    d_ids = [str(p.get("steamAccountId") or "") for p in (dire or []) if str(p.get("steamAccountId") or "").strip()]
+    if isinstance(match_id, dict):
+        snap = match_id
+        try:
+            mid = int(snap.get("matchId") or 0)
+        except Exception:
+            mid = 0
+        radiant = snap.get("radiant") or []
+        dire = snap.get("dire") or []
+        steam_to_name = snap.get("steamToName")
+        if not isinstance(steam_to_name, dict):
+            steam_to_name = _steam_to_name_map()
+    else:
+        mid = int(match_id)
+        steam_to_name = _steam_to_name_map()
+
+    def _names(players: list[dict]) -> list[str]:
+        out: list[str] = []
+        for p in (players or []):
+            sid = str(p.get("steamAccountId") or "").strip()
+            if not sid:
+                continue
+            name = ""
+            try:
+                name = str(steam_to_name.get(sid) or "").strip()
+            except Exception:
+                name = ""
+            if not name:
+                name = "Unknown"
+            out.append(name)
+        return out
+
+    r_names = _names(radiant or [])
+    d_names = _names(dire or [])
 
     now = datetime.now(timezone.utc).astimezone()
     timestamp = now.isoformat()
@@ -311,9 +408,9 @@ def build_duel_fallback_embed(match_id: int, radiant: list[dict], dire: list[dic
         "title": "⚔️ Guild Duel Detected",
         "description": "",
         "fields": [
-            {"name": "Radiant", "value": "\n".join(r_ids) if r_ids else "-", "inline": True},
-            {"name": "Dire", "value": "\n".join(d_ids) if d_ids else "-", "inline": True},
+            {"name": "Radiant", "value": "\n".join(r_names) if r_names else "-", "inline": True},
+            {"name": "Dire", "value": "\n".join(d_names) if d_names else "-", "inline": True},
         ],
-        "footer": {"text": f"Match ID: {match_id}"},
+        "footer": {"text": f"Match ID: {mid}"},
         "timestamp": timestamp,
     }
