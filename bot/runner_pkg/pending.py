@@ -102,17 +102,32 @@ def _expire_pending_snapshot(entry: Dict[str, Any]) -> Dict[str, Any]:
     return build_fallback_embed(expired)
 
 
+def _steam_to_name_map() -> Dict[str, str]:
+    """
+    CONFIG["players"] shape:
+      keys = names
+      values = Steam32 IDs
+    Return reverse mapping: steam32(str) -> name(str)
+    """
+    cfg_players = (CONFIG.get("players") or {})
+    try:
+        return {str(v): str(k) for (k, v) in cfg_players.items()}
+    except Exception:
+        return {}
+
+
 def _build_party_upgrade_embed(match_id: int, party_id: str, is_radiant: int, members: list[dict]) -> dict:
     """Build a simple 'upgraded' embed for party stacks once IMP is available (Phase 2b)."""
     from datetime import datetime, timezone
 
+    steam_to_name = _steam_to_name_map()
     side = "Radiant" if int(is_radiant) == 1 else "Dire"
     lines = []
     for p in sorted((members or []), key=lambda x: str(x.get("steamAccountId") or "")):
         sid = str(p.get("steamAccountId") or "").strip()
         if not sid:
             continue
-        nick = (CONFIG.get("players") or {}).get(sid) or sid
+        nick = steam_to_name.get(sid) or sid
         imp = p.get("imp")
         try:
             imp_str = "-" if imp is None else f"{float(imp):.1f}"
@@ -161,13 +176,15 @@ def _build_duel_upgrade_embed(match_id: int, radiant: list[dict], dire: list[dic
     """Build a simple 'upgraded' embed for duels once IMP is available (Phase 2b)."""
     from datetime import datetime, timezone
 
+    steam_to_name = _steam_to_name_map()
+
     def _lines(side_players: list[dict]) -> list[str]:
         out = []
         for p in sorted((side_players or []), key=lambda x: str(x.get("steamAccountId") or "")):
             sid = str(p.get("steamAccountId") or "").strip()
             if not sid:
                 continue
-            nick = (CONFIG.get("players") or {}).get(sid) or sid
+            nick = steam_to_name.get(sid) or sid
             imp = p.get("imp")
             try:
                 imp_str = "-" if imp is None else f"{float(imp):.1f}"
@@ -234,7 +251,13 @@ def _normalize_pending_map(pending_map: Dict[str, Any]) -> None:
 
         match_id = val.get("matchId") or key
         steam_id = val.get("steamId")
+        message_id = val.get("messageId")
+
         if not match_id or steam_id is None:
+            to_delete.append(key)
+            continue
+
+        if not message_id or not str(message_id).strip():
             to_delete.append(key)
             continue
 
@@ -542,7 +565,10 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
     # ---- Duel pending upgrades/expiry (Phase 2b) ----
     duel_pending_map = state.get("duelPending") or {}
     if isinstance(duel_pending_map, dict) and duel_pending_map:
-        guild_ids = set((CONFIG.get("players") or {}).keys())
+        try:
+            guild_ids = set(str(v) for v in (CONFIG.get("players") or {}).values())
+        except Exception:
+            guild_ids = set()
         for key, entry in sorted(list(duel_pending_map.items()), key=lambda kv: _posted_at_epoch(kv[1])):
             if not isinstance(entry, dict):
                 continue
