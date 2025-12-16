@@ -4,6 +4,7 @@ import time
 import random
 import requests
 import os
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from bot.throttle import throttle_webhook
 from bot.formatter_pkg.util import build_discord_mention
 
@@ -64,6 +65,17 @@ def _webhook_cooldown_active() -> bool:
 def strip_query(webhook_url: str) -> str:
     """Strip any query parameters from the webhook URL to get a stable base."""
     return webhook_url.split("?", 1)[0].strip()
+
+
+def _with_wait_true(webhook_url: str) -> str:
+    """
+    Ensure the webhook URL includes ?wait=true, preserving any existing query parameters.
+    """
+    parts = urlsplit(webhook_url)
+    pairs = [(k, v) for (k, v) in parse_qsl(parts.query, keep_blank_values=True) if k != "wait"]
+    pairs.append(("wait", "true"))
+    new_query = urlencode(pairs, doseq=True)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
 
 
 def _ensure_webhook_url(webhook_url: str | None) -> str | None:
@@ -189,7 +201,7 @@ def post_to_discord_embed(
         payload["content"] = content
 
     base = strip_query(webhook_url)
-    url = base
+    url = _with_wait_true(webhook_url) if want_message_id else base
 
     try:
         r = requests.post(url, json=payload, timeout=10)
@@ -201,6 +213,9 @@ def post_to_discord_embed(
                     msg_id = str(msg.get("id")) if isinstance(msg, dict) else None
                 except Exception:
                     msg_id = None
+                if not msg_id:
+                    print("⚠️ want_message_id=True but no message id returned (missing ?wait=true response body).")
+                    return _fail("other_error", 0.0, structured)
             time.sleep(1.0 + random.uniform(0.1, 0.6))
             return _ok(msg_id, structured)
 
@@ -220,6 +235,9 @@ def post_to_discord_embed(
                         msg_id = str(msg.get("id")) if isinstance(msg, dict) else None
                     except Exception:
                         msg_id = None
+                    if not msg_id:
+                        print("⚠️ want_message_id=True but no message id returned on retry (missing ?wait=true response body).")
+                        return _fail("other_error", 0.0, structured)
                 time.sleep(1.0 + random.uniform(0.1, 0.6))
                 return _ok(msg_id, structured)
             if _looks_like_cloudflare_1015(rr):
