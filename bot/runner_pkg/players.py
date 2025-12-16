@@ -21,7 +21,6 @@ from .webhook_client import (
     strip_query,
     resolve_webhook_for_post,
 )
-from bot.runner_pkg.pending import process_pending_upgrades_and_expiry
 from bot.runner_pkg.timeutil import now_iso
 
 
@@ -95,10 +94,6 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
         discord_id = (CONFIG.get("discord_ids") or {}).get(player_name, "")
     except Exception:
         discord_id = ""
-
-    # Pass 0: pending upgrades/expiry before doing any new work
-    if not process_pending_upgrades_and_expiry(state):
-        return False
 
     if is_hard_blocked():
         return False
@@ -197,7 +192,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                     resolved,
                     want_message_id=True,
                 )
-                if posted:
+                if posted and msg_id:
                     print(f"✅ Posted fallback embed for {player_name} match {match_id}")
                     pending_map[composite_key] = {
                         "steamId": steam_id,
@@ -310,7 +305,11 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
         state["partyPosted"] = party_posted
         state["duelPosted"] = duel_posted
 
-        guild_ids = set((CONFIG.get("players") or {}).keys())
+        cfg_players = (CONFIG.get("players") or {})
+        try:
+            guild_ids = set(str(v) for v in cfg_players.values())
+        except Exception:
+            guild_ids = set()
 
         # Gather guild players in this match
         guild_players = [p for p in match_data.get("players", []) if str(p.get("steamAccountId")) in guild_ids]
@@ -329,6 +328,12 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
 
             from bot.formatter_pkg.embed import build_party_fallback_embed, build_duel_fallback_embed
 
+            # Reverse lookup: steam32 -> name (config keys are names, values are steam32)
+            try:
+                steam_to_name = {str(v): str(k) for (k, v) in cfg_players.items()}
+            except Exception:
+                steam_to_name = {}
+
             for (pid, side), members in parties.items():
                 if len(members) < 2:
                     continue
@@ -342,27 +347,12 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                 except Exception:
                     party_is_victory = None
 
-                # Basic "guild-only" member list
-                member_rows = []
-                for m in members:
-                    sid = str(m.get("steamAccountId") or "").strip()
-                    if not sid:
-                        continue
-                    nick = (CONFIG.get("players") or {}).get(sid) or sid
-                    hero = m.get("hero", {}) or {}
-                    hero_name = hero.get("displayName") or hero.get("name") or "?"
-                    k = (m.get("kills") or 0)
-                    d = (m.get("deaths") or 0)
-                    a = (m.get("assists") or 0)
-                    member_rows.append({"steamId": sid, "nickname": nick, "hero": hero_name, "k": k, "d": d, "a": a})
-
                 snapshot = {
                     "matchId": match_id,
                     "partyId": pid,
                     "isRadiant": side == 1,
                     "isVictory": party_is_victory,
-                    "members": member_rows,
-                    "memberCount": len(member_rows),
+                    "members": members,
                 }
 
                 embed = build_party_fallback_embed(snapshot)
@@ -374,7 +364,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                         resolved,
                         want_message_id=True,
                     )
-                    if posted:
+                    if posted and msg_id:
                         base = strip_query(resolved)
                         party_pending = state.setdefault("partyPending", {})
                         party_pending[party_key] = {
@@ -384,7 +374,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                             "messageId": str(msg_id),
                             "webhookBase": base,
                             "postedAt": now_iso(),
-                            "snapshot": {"memberCount": len(member_rows)},
+                            "snapshot": {"memberCount": len(members)},
                         }
                         party_posted[party_key] = True
                         print(f"👥 Party fallback posted & tracked: {party_key}")
@@ -397,8 +387,9 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                 if duel_key not in duel_posted:
                     snapshot = {
                         "matchId": match_id,
-                        "radiant": [{"steamId": str(p.get("steamAccountId") or "")} for p in radiant],
-                        "dire": [{"steamId": str(p.get("steamAccountId") or "")} for p in dire],
+                        "radiant": radiant,
+                        "dire": dire,
+                        "steamToName": steam_to_name,
                     }
                     embed = build_duel_fallback_embed(snapshot)
 
@@ -409,7 +400,7 @@ def process_player(player_name: str, steam_id: int, last_posted_id: int | None, 
                             resolved,
                             want_message_id=True,
                         )
-                        if posted:
+                        if posted and msg_id:
                             base = strip_query(resolved)
                             duel_pending = state.setdefault("duelPending", {})
                             duel_pending[duel_key] = {
