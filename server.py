@@ -50,17 +50,30 @@ def health():
     running = run_started_at is not None
     run_age = int(now - run_started_at) if running else 0
 
-    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
-    discord_configured = bool(token)
+    try:
+        discord_configured = bool(discord_gateway.discord_configured())
+    except Exception:
+        discord_configured = False
 
-    discord_started = bool(getattr(discord_gateway, "_discord_thread_started", False))
-    t = getattr(discord_gateway, "_discord_thread", None)
-    discord_thread_alive = bool(t is not None and getattr(t, "is_alive", None) and t.is_alive())
+    try:
+        discord_started = bool(discord_gateway.discord_started())
+    except Exception:
+        discord_started = False
+
+    try:
+        discord_thread_alive = bool(discord_gateway.discord_thread_alive())
+    except Exception:
+        discord_thread_alive = False
+
+    finished_at = last_run_finished_at
+    finished_age = int(now - finished_at) if finished_at else None
 
     payload = {
         "ok": True,
         "run_in_progress": running,
         "run_age_seconds": run_age,
+        "last_run_finished_at": finished_at,
+        "last_run_finished_age_seconds": finished_age,
         "discord_configured": discord_configured,
         "discord_started": discord_started,
         "discord_thread_alive": discord_thread_alive,
@@ -92,7 +105,10 @@ def run():
 
 
 # Process boot hook: start Discord gateway once per process (idempotent).
-start_discord_gateway_if_configured()
+try:
+    start_discord_gateway_if_configured()
+except Exception as e:
+    print(f"⚠️ Discord gateway start failed (ignored): {e}", flush=True)
 
 
 if __name__ == "__main__":
