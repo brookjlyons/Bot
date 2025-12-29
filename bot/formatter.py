@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 
-_AVATAR_BASE_URL = "https://raw.githubusercontent.com/brooklyons/Bot/main/Bot-main/data/avatars/"
+_AVATAR_BASE_URL = "https://raw.githubusercontent.com/brookjlyons/Bot/refs/heads/main/data/avatars/"
 _AVATAR_DEFAULT_URL = f"{_AVATAR_BASE_URL}default.jpg"
 
 
