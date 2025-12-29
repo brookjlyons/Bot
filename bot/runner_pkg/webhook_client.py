@@ -42,6 +42,37 @@ def _resolve_env_webhook() -> str | None:
     return (os.getenv("DISCORD_WEBHOOK_URL") or "").strip() or None
 
 
+def _resolve_party_debug_webhook() -> str | None:
+    """
+    Resolve the dedicated party debug webhook (prod only).
+    NOTE:
+      - In DEBUG_MODE, DISCORD_WEBHOOK_URL_DEBUG takes precedence globally.
+      - In PROD, party/duel embeds should route to DISCORD_WEBHOOK_MATCHBOT_PARTY_DEBUG when set.
+    """
+    return (os.getenv("DISCORD_WEBHOOK_MATCHBOT_PARTY_DEBUG") or "").strip() or None
+
+
+def _is_party_or_duel_embed(embed: dict) -> bool:
+    """
+    Deterministic routing based on embed title produced by formatter_pkg/embed.py.
+    Party pending embeds:
+      title starts with "⏳ Party (Pending Stats)"
+    Duel embeds:
+      title == "⚔️ Guild Duel Detected"
+    """
+    try:
+        title = str(embed.get("title") or "")
+    except Exception:
+        title = ""
+    if not title:
+        return False
+    if title.startswith("⏳ Party (Pending Stats)"):
+        return True
+    if title == "⚔️ Guild Duel Detected":
+        return True
+    return False
+
+
 def _ensure_default_webhook() -> None:
     global _DEFAULT_WEBHOOK_URL
     if _DEFAULT_WEBHOOK_URL is None:
@@ -174,6 +205,12 @@ def post_to_discord_embed(
     """
     global _HARD_BLOCKED
 
+    # Route party/duel embeds to the dedicated party debug webhook (prod only).
+    if DEBUG_LEVEL == 0 and _is_party_or_duel_embed(embed):
+        party_dbg = _resolve_party_debug_webhook()
+        if party_dbg:
+            webhook_url = party_dbg
+
     webhook_url = _ensure_webhook_url(webhook_url)
     if not webhook_url:
         return _fail("other_error", 0.0, structured)
@@ -281,6 +318,12 @@ def edit_discord_message(
     Phase 4 (structured=True): (ok, code, backoff)
     """
     global _HARD_BLOCKED
+
+    # Route party/duel embeds to the dedicated party debug webhook (prod only).
+    if DEBUG_LEVEL == 0 and _is_party_or_duel_embed(embed):
+        party_dbg = _resolve_party_debug_webhook()
+        if party_dbg:
+            webhook_url = party_dbg
 
     webhook_url = _ensure_webhook_url(webhook_url)
     if not webhook_url:
