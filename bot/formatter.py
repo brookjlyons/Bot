@@ -9,6 +9,7 @@ from feedback.advice import generate_advice, get_title_phrase
 from feedback.extract import extract_player_stats
 from datetime import datetime
 import os
+from typing import Any
 from feedback.catalog.impact import impact_explanation_line
 
 # Public surface re-exported from formatter_pkg
