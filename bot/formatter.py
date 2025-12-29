@@ -29,6 +29,24 @@ __all__ = [
 ]
 
 
+_AVATAR_BASE_URL = "https://raw.githubusercontent.com/brooklyons/Bot/main/Bot-main/data/avatars/"
+_AVATAR_DEFAULT_URL = f"{_AVATAR_BASE_URL}default.jpg"
+
+
+def _avatar_url_from_steam32(steam32: Any) -> str:
+    """
+    Deterministically derive a public avatar URL from Steam32.
+    Always returns a non-empty URL string (never None).
+    """
+    try:
+        sid = int(steam32)
+    except Exception:
+        return _AVATAR_DEFAULT_URL
+    if sid <= 0:
+        return _AVATAR_DEFAULT_URL
+    return f"{_AVATAR_BASE_URL}{sid}.jpg"
+
+
 def _first3_lines(value) -> list[str]:
     """
     Normalize any advice collection into a list[str] of at most 3 items.
@@ -143,22 +161,7 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
 
     title = title[:1].lower() + title[1:]
 
-    # 🔗 Steam avatar (optional)
-    avatar_url = None
-    try:
-        # Only attempt lookup when an API key is present
-        if os.getenv("STEAM_API_KEY"):
-            try:
-                from bot.steam_user import get_avatar_url  # local helper
-            except Exception:
-                # Support flat module name if placed at project root (dev convenience)
-                from steam_user import get_avatar_url  # type: ignore
-            steam32 = player.get("steamAccountId")
-            if isinstance(steam32, int):
-                avatar_url = get_avatar_url(steam32) or None
-    except Exception as _e:
-        # Non-fatal; just skip avatar on any error
-        avatar_url = None
+    avatar_url = _avatar_url_from_steam32(player.get("steamAccountId"))
 
     positives_lines = _first3_lines(advice.get("positives"))
     negatives_lines = _first3_lines(advice.get("negatives"))
@@ -194,7 +197,7 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         "flags": flags_lines,
         "tips": tips_lines,
         "matchId": match.get("id"),
-        "avatarUrl": avatar_url,  # ← optional
+        "avatarUrl": avatar_url,
     }
 
 
@@ -223,19 +226,7 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
         title = "(Pending Stats)"
         status_note = "Impact score not yet processed by Stratz — detailed analysis will appear later."
 
-    # 🔗 Steam avatar (optional) for fallback too (non-breaking)
-    avatar_url = None
-    try:
-        if os.getenv("STEAM_API_KEY"):
-            try:
-                from bot.steam_user import get_avatar_url
-            except Exception:
-                from steam_user import get_avatar_url  # type: ignore
-            steam32 = player.get("steamAccountId")
-            if isinstance(steam32, int):
-                avatar_url = get_avatar_url(steam32) or None
-    except Exception:
-        avatar_url = None
+    avatar_url = _avatar_url_from_steam32(player.get("steamAccountId"))
 
     return {
         "playerName": player_name,
@@ -252,5 +243,5 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
         "basicStats": basic_stats,
         "statusNote": status_note,
         "matchId": match.get("id"),
-        "avatarUrl": avatar_url,  # ← optional
+        "avatarUrl": avatar_url,
     }
