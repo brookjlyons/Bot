@@ -9,6 +9,7 @@ from feedback.advice import generate_advice, get_title_phrase
 from feedback.extract import extract_player_stats
 from datetime import datetime
 import os
+from feedback.catalog.impact import impact_explanation_line
 
 # Public surface re-exported from formatter_pkg
 from bot.formatter_pkg.stats_sets import NORMAL_STATS, TURBO_STATS
@@ -44,6 +45,39 @@ def _first3_lines(value) -> list[str]:
         return [str(x) for x in list(value)[:3]]
     # Unexpected type: coerce to single-line string
     return [str(value)][:1]
+
+
+def _notes_sentence(lines: list[str]) -> str:
+    """
+    Collapse a list[str] (≤3) into a single sentence.
+    - [] -> ""
+    - joins with a single space
+    - ensures terminal punctuation (.,!,?) for clean paragraph concatenation
+    """
+    if not lines:
+        return ""
+    s = " ".join([str(x).strip() for x in lines if str(x).strip()]).strip()
+    if not s:
+        return ""
+    if s.endswith((".", "!", "?")):
+        return s
+    return s + "."
+
+
+def _safe_score_float(value) -> float:
+    """
+    Defensive float parse for IMP score.
+    - None/unparseable -> 0.0
+    - NaN -> 0.0
+    """
+    try:
+        f = float(value)
+    except Exception:
+        return 0.0
+    # NaN check: NaN != NaN
+    if f != f:
+        return 0.0
+    return f
 
 
 # --- Main match analysis entrypoint ---
@@ -97,7 +131,9 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
     except TypeError:
         advice = generate_advice(tags, stats, mode=mode)  # legacy path
 
-    score = float(result.get("score") or 0.0)
+    score = _safe_score_float(result.get("score") or 0.0)
+    impact_score_int = int(round(score))
+    impact_explanation = impact_explanation_line(impact_score_int)
 
     # Title (pass rng if supported; fall back if not)
     try:
@@ -124,11 +160,27 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         # Non-fatal; just skip avatar on any error
         avatar_url = None
 
+    positives_lines = _first3_lines(advice.get("positives"))
+    negatives_lines = _first3_lines(advice.get("negatives"))
+    flags_lines = _first3_lines(advice.get("flags"))
+    tips_lines = _first3_lines(advice.get("tips"))
+
+    notes_parts = [
+        _notes_sentence(positives_lines),
+        _notes_sentence(negatives_lines),
+        _notes_sentence(flags_lines),
+        _notes_sentence(tips_lines),
+    ]
+    notes_text = " ".join([p for p in notes_parts if p])
+
     return {
         "playerName": player_name,
         "emoji": emoji,
         "title": title,
         "score": score,
+        "impact_score_int": impact_score_int,
+        "impact_explanation_line": impact_explanation,
+        "notes_text": notes_text,
         "mode": mode,
         "gameModeName": game_mode_name,
         "role": player.get("roleBasic", "unknown"),
@@ -137,10 +189,10 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         "duration": match.get("durationSeconds", 0),
         "isVictory": is_victory,
         # Enforce ≤3 lines and no None using helper (embed builder will also cap)
-        "positives": _first3_lines(advice.get("positives")),
-        "negatives": _first3_lines(advice.get("negatives")),
-        "flags": _first3_lines(advice.get("flags")),
-        "tips": _first3_lines(advice.get("tips")),
+        "positives": positives_lines,
+        "negatives": negatives_lines,
+        "flags": flags_lines,
+        "tips": tips_lines,
         "matchId": match.get("id"),
         "avatarUrl": avatar_url,  # ← optional
     }
