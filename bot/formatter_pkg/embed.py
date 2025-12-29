@@ -22,7 +22,7 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     (See Project Guidance Bible → GUIDELINES:EMBED_CONTRACT)
 
     NOTE (Phase 5):
-      • Avatars render as a LARGE image (embed['image']).
+      • Avatars render as a THUMBNAIL (embed['thumbnail']).
       • Advice sections are trimmed to ≤3 lines here (and already pre-trimmed by formatter).
     """
     from datetime import datetime, timezone
@@ -65,10 +65,10 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
         "timestamp": timestamp,
     }
 
-    # 🖼️ Optional Steam avatar as LARGE image
+    # 🖼️ Optional avatar as THUMBNAIL
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
-        embed["image"] = {"url": avatar_url}
+        embed["thumbnail"] = {"url": avatar_url}
 
     return embed
 
@@ -78,7 +78,7 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     Build the PENDING/SAFE fallback embed used when IMP is missing or private data blocks analysis.
 
     NOTE (Phase 5):
-      • Avatars render as a LARGE image.
+      • Avatars render as a THUMBNAIL.
     """
     from datetime import datetime, timezone
 
@@ -111,10 +111,10 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
         "timestamp": timestamp,
     }
 
-    # 🖼️ Optional Steam avatar as LARGE image
+    # 🖼️ Optional avatar as THUMBNAIL
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
-        embed["image"] = {"url": avatar_url}
+        embed["thumbnail"] = {"url": avatar_url}
 
     return embed
 
@@ -404,4 +404,4 @@ def build_duel_fallback_embed(match_id: int | dict, radiant: list[dict] | None =
         ],
         "footer": {"text": f"Match ID: {mid}"},
         "timestamp": timestamp,
-    }
+    } "
