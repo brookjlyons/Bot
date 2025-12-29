@@ -404,4 +404,4 @@ def build_duel_fallback_embed(match_id: int | dict, radiant: list[dict] | None =
         ],
         "footer": {"text": f"Match ID: {mid}"},
         "timestamp": timestamp,
-    } "
+    }
