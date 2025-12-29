@@ -22,7 +22,7 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     (See Project Guidance Bible → GUIDELINES:EMBED_CONTRACT)
 
     NOTE (Phase 5):
-      • Avatars render both as a LARGE image (embed['image']) and as the author icon.
+      • Avatars render as a LARGE image (embed['image']).
       • Advice sections are trimmed to ≤3 lines here (and already pre-trimmed by formatter).
     """
     from datetime import datetime, timezone
@@ -39,43 +39,36 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     now = datetime.now(timezone.utc).astimezone()
     timestamp = now.isoformat()
 
-    score = result.get("score", None)
-    impact_val = "-" if score is None else f"{score:.1f}"
+    impact_score_int = result.get("impact_score_int", None)
+    impact_score_int_str = "-" if impact_score_int is None else str(int(impact_score_int))
+    impact_explanation_line = str(result.get("impact_explanation_line", "-") or "-")
 
-    positives = _ellipsis_lines(result.get("positives", []) or [])
-    negatives = _ellipsis_lines(result.get("negatives", []) or [])
-    flags = _ellipsis_lines(result.get("flags", []) or [])
-    tips = _ellipsis_lines(result.get("tips", []) or [])
+    notes_text = str(result.get("notes_text", "") or "").strip()
+    if not notes_text:
+        notes_text = "-"
 
     # ⚠ Field order must match contract exactly.
     fields: List[Dict[str, Any]] = [
-        {"name": "🧮 Impact", "value": impact_val, "inline": True},
         {"name": "🧭 Role", "value": str(result.get("role", "unknown")).capitalize(), "inline": True},
         {"name": "⚙️ Mode", "value": result.get("gameModeName", "Unknown"), "inline": True},
         {"name": "⏱️ Duration", "value": duration_str, "inline": True},
-        {"name": "🎯 What went well", "value": positives, "inline": False},
-        {"name": "🧱 What to work on", "value": negatives, "inline": False},
-        {"name": "📌 Flagged behavior", "value": flags, "inline": False},
-        {"name": "🗺️ Tips", "value": tips, "inline": False},
+        {"name": "📝 Notes", "value": notes_text, "inline": False},
     ]
 
     embed: Dict[str, Any] = {
         "title": title,
-        "description": "",
+        "description": f"⭐ IMPACT — {impact_score_int_str}\n{impact_explanation_line}",
         "fields": fields,
         "footer": {
             "text": f"Match ID: {result.get('matchId', '-')}"
         },
         "timestamp": timestamp,
-        # author.name is part of our contract; icon_url added below if avatar present
-        "author": {"name": str(result.get("playerName", "Player"))},
     }
 
-    # 🖼️ Optional Steam avatar as LARGE image + author icon
+    # 🖼️ Optional Steam avatar as LARGE image
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
         embed["image"] = {"url": avatar_url}
-        embed["author"]["icon_url"] = avatar_url
 
     return embed
 
@@ -85,7 +78,7 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     Build the PENDING/SAFE fallback embed used when IMP is missing or private data blocks analysis.
 
     NOTE (Phase 5):
-      • Avatars render both as a LARGE image and as the author icon.
+      • Avatars render as a LARGE image.
     """
     from datetime import datetime, timezone
 
@@ -116,14 +109,12 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
             "text": f"Match ID: {result.get('matchId', '-')}"
         },
         "timestamp": timestamp,
-        "author": {"name": str(result.get("playerName", "Player"))},
     }
 
-    # 🖼️ Optional Steam avatar as LARGE image + author icon
+    # 🖼️ Optional Steam avatar as LARGE image
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
         embed["image"] = {"url": avatar_url}
-        embed["author"]["icon_url"] = avatar_url
 
     return embed
 
