@@ -3,6 +3,11 @@
 from typing import List, Dict, Any
 
 
+# Discord sidebar colors (24-bit RGB)
+COLOR_WIN = 0x2ECC71   # green
+COLOR_LOSS = 0xE74C3C  # red
+
+
 def _ellipsis_lines(lines: List[str], max_lines: int = 3) -> str:
     """
     Join up to `max_lines` lines with newlines. If more items exist, append an ellipsis.
@@ -63,6 +68,7 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
             "text": f"Match ID: {result.get('matchId', '-')}"
         },
         "timestamp": timestamp,
+        "color": COLOR_WIN if result.get("isVictory") else COLOR_LOSS,
     }
 
     # 🖼️ Optional avatar as THUMBNAIL
@@ -109,6 +115,7 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
             "text": f"Match ID: {result.get('matchId', '-')}"
         },
         "timestamp": timestamp,
+        "color": COLOR_WIN if result.get("isVictory") else COLOR_LOSS,
     }
 
     # 🖼️ Optional avatar as THUMBNAIL
@@ -117,7 +124,6 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
         embed["thumbnail"] = {"url": avatar_url}
 
     return embed
-
 
 
 def _format_duration_seconds(seconds: int) -> str:
@@ -282,7 +288,7 @@ def _build_party_fallback_embed_from_parts(
     now = datetime.now(timezone.utc).astimezone()
     timestamp = now.isoformat()
 
-    return {
+    embed = {
         "title": title,
         "description": "",
         "fields": [
@@ -299,6 +305,13 @@ def _build_party_fallback_embed_from_parts(
         "footer": {"text": f"Match ID: {match_id}"},
         "timestamp": timestamp,
     }
+
+    if is_victory is True:
+        embed["color"] = COLOR_WIN
+    elif is_victory is False:
+        embed["color"] = COLOR_LOSS
+
+    return embed
 
 
 def build_party_fallback_embed(
