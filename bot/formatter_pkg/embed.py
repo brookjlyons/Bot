@@ -21,6 +21,46 @@ def _ellipsis_lines(lines: List[str], max_lines: int = 3) -> str:
     return "\n".join(lines[:max_lines] + ["…"])
 
 
+def _impact_emoji(impact_score_int: Any) -> str:
+    """
+    Canonical IMPACT emoji tiers (locked).
+    -41..-31 ⚰️
+    -30..-21 💀
+    -20..-11 ⚠️
+    -10..-1  ❗
+    0        ⚪
+    +1..+10  🌱
+    +11..+20 🌳
+    +21..+30 🏅
+    +31..+40 🏆
+    +41+     👑
+    """
+    try:
+        s = int(impact_score_int)
+    except Exception:
+        return "⚪"
+
+    if s >= 41:
+        return "👑"
+    if s >= 31:
+        return "🏆"
+    if s >= 21:
+        return "🏅"
+    if s >= 11:
+        return "🌳"
+    if s >= 1:
+        return "🌱"
+    if s == 0:
+        return "⚪"
+    if s >= -10:
+        return "❗"
+    if s >= -20:
+        return "⚠️"
+    if s >= -30:
+        return "💀"
+    return "⚰️"
+
+
 def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     """
     Build the FULL match embed using the agreed contract and field order.
@@ -52,17 +92,20 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     if not notes_text:
         notes_text = "-"
 
+    impact_emoji = _impact_emoji(impact_score_int)
+    impact_label = f"{impact_emoji} Impact {impact_emoji}"
+
     # ⚠ Field order must match contract exactly.
     fields: List[Dict[str, Any]] = [
-        {"name": "🧭 Role", "value": str(result.get("role", "unknown")).capitalize(), "inline": True},
-        {"name": "⚙️ Mode", "value": result.get("gameModeName", "Unknown"), "inline": True},
-        {"name": "⏱️ Duration", "value": duration_str, "inline": True},
-        {"name": "📝 Notes", "value": notes_text, "inline": False},
+        {"name": "Role", "value": str(result.get("role", "unknown")).capitalize(), "inline": True},
+        {"name": "Mode", "value": result.get("gameModeName", "Unknown"), "inline": True},
+        {"name": "Duration", "value": duration_str, "inline": True},
+        {"name": "Notes", "value": notes_text, "inline": False},
     ]
 
     embed: Dict[str, Any] = {
         "title": title,
-        "description": f"⭐ IMPACT — {impact_score_int_str}\n{impact_explanation_line}",
+        "description": f"{impact_label} — {impact_score_int_str}\n{impact_explanation_line}",
         "fields": fields,
         "footer": {
             "text": f"Match ID: {result.get('matchId', '-')}"
@@ -105,11 +148,11 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     timestamp = now.isoformat()
 
     fields: List[Dict[str, Any]] = [
-        {"name": "⚙️ Mode", "value": result.get("gameModeName", "Unknown"), "inline": True},
-        {"name": "⏱️ Duration", "value": duration_str, "inline": True},
-        {"name": "🧭 Role", "value": str(result.get("role", "unknown")).capitalize(), "inline": True},
-        {"name": "📊 Basic Stats", "value": result.get("basicStats", "-"), "inline": False},
-        {"name": "⚠️ Status", "value": result.get("statusNote", "-"), "inline": False},
+        {"name": "Mode", "value": result.get("gameModeName", "Unknown"), "inline": True},
+        {"name": "Duration", "value": duration_str, "inline": True},
+        {"name": "Role", "value": str(result.get("role", "unknown")).capitalize(), "inline": True},
+        {"name": "Basic Stats", "value": result.get("basicStats", "-"), "inline": False},
+        {"name": "Status", "value": result.get("statusNote", "-"), "inline": False},
     ]
 
     embed: Dict[str, Any] = {
@@ -302,12 +345,12 @@ def _build_party_fallback_embed_from_parts(
         "title": title,
         "description": "",
         "fields": [
-            {"name": "⚙️ Mode", "value": mode_label, "inline": True},
-            {"name": "⏱️ Duration", "value": dur_label, "inline": True},
-            {"name": "👥 Stack", "value": stack_label, "inline": True},
-            {"name": "🧑‍🤝‍🧑 Members", "value": members_val, "inline": False},
+            {"name": "Mode", "value": mode_label, "inline": True},
+            {"name": "Duration", "value": dur_label, "inline": True},
+            {"name": "Stack", "value": stack_label, "inline": True},
+            {"name": "Members", "value": members_val, "inline": False},
             {
-                "name": "⚠️ Status",
+                "name": "Status",
                 "value": "Impact score not yet processed by Stratz — detailed analysis will appear later.",
                 "inline": False,
             },
