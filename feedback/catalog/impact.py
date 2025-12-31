@@ -6,91 +6,127 @@ from typing import Dict
 
 
 _EXPLANATIONS: Dict[int, str] = {
-    -40: "-40: Catastrophic impact — you were a walking win-condition… for the enemy.",
-    -39: "-39: Utterly brutal — every decision seemed to make things worse.",
-    -38: "-38: Nightmare fuel — the map would’ve improved if you were AFK.",
-    -37: "-37: Pure sabotage vibes — your team fought 4v6 all game.",
-    -36: "-36: Horrendous — you gave away momentum like it was free.",
-    -35: "-35: Trainwreck — you weren’t in the game, you were in the way.",
-    -34: "-34: Deeply awful — the enemy got rich off your existence.",
-    -33: "-33: Painful — you delivered more value to their team than yours.",
-    -32: "-32: Ugly — you kept showing up at the worst possible moments.",
-    -31: "-31: Grim — you made losing easier than winning.",
-    -30: "-30: Very bad — you were consistently a step behind and a death ahead.",
-    -29: "-29: Rough — you took fights that shouldn’t exist.",
-    -28: "-28: Bad — you bled gold and tempo across the map.",
-    -27: "-27: Really poor — you were present, but mostly as a donation.",
-    -26: "-26: Miserable — you turned small problems into big ones.",
-    -25: "-25: Low impact in the worst way — you fed pressure to the enemy.",
-    -24: "-24: Weak showing — you helped them more than you helped you.",
-    -23: "-23: Not good — your moves created openings for the other side.",
-    -22: "-22: Struggling — you kept losing trades that mattered.",
-    -21: "-21: Pretty bad — you were a liability more often than not.",
-    -20: "-20: Below par — you weren’t the only problem, but you were definitely one.",
-    -19: "-19: Underwhelming — you didn’t stabilize anything when it mattered.",
-    -18: "-18: Poor — you missed windows and paid for it.",
-    -17: "-17: Subpar — you didn’t convert time into value.",
-    -16: "-16: Off it — you were late to fights and early to die.",
-    -15: "-15: Not great — you gave away too much for too little.",
-    -14: "-14: Sloppy — your impact came with a big price tag.",
-    -13: "-13: Shaky — you weren’t useless, but you weren’t helpful either.",
-    -12: "-12: Weak — you had moments, but mostly didn’t move the needle.",
-    -11: "-11: Low value — you existed on the map without controlling it.",
-    -10: "-10: Mildly negative — you cost more than you contributed.",
-    -9: "-9: A bit harmful — you gave the enemy some easy wins.",
-    -8: "-8: Slightly bad — your presence didn’t improve the game.",
-    -7: "-7: Not ideal — you struggled to make anything stick.",
-    -6: "-6: Small negative — you didn’t pull your weight this one.",
-    -5: "-5: Just below neutral — you were close to fine, but not quite.",
-    -4: "-4: Slight negative — you didn’t help much, and you hurt a little.",
-    -3: "-3: Minor drag — you were mostly irrelevant with a couple mistakes.",
-    -2: "-2: Almost neutral — a few missteps, not much else.",
-    -1: "-1: Near zero — basically no real contribution either way.",
-    0: "0: Perfectly neutral — you did exactly nothing: didn’t help, didn’t hurt.",
-    1: "1: Barely positive — you existed, and that’s technically something.",
-    2: "2: Slight help — a couple small things went your team’s way.",
-    3: "3: Minor contribution — you added a little more than you took.",
-    4: "4: Small positive — not flashy, but not useless.",
-    5: "5: Just above neutral — you helped a bit more than you harmed.",
-    6: "6: Light impact — you started to matter in small ways.",
-    7: "7: Decent — you made a few plays that actually counted.",
-    8: "8: Solid — you weren’t carrying, but you were contributing.",
-    9: "9: Good — you were more useful than the average body on the map.",
-    10: "10: Strong — you consistently did something productive.",
-    11: "11: Pretty good — you showed up and it mattered.",
+    -51: "-51: All-time catastrophe — you repeatedly transformed winning chances into historical regret.",
+    -50: "-50: Legendary disaster — the enemy team could set their watch by your mistakes.",
+    -49: "-49: Match-breaking negative — “punish this player” was a complete strategy.",
+    -48: "-48: Unrecoverable — you created problems no amount of teamwork could solve.",
+    -47: "-47: Crippling liability — when things went wrong, you were usually nearby.",
+    -46: "-46: Severe negative — your decisions reliably nudged the win probability the wrong way.",
+    -45: "-45: Very damaging — you invested heavily in the enemy team’s success.",
+    -44: "-44: Heavily harmful — you kept giving ground and never reclaimed it.",
+    -43: "-43: Extremely harmful — your errors translated cleanly into advantage for the enemy team.",
+    -42: "-42: Brutal — you lost the moments that decide games, and paid interest on them.",
+    -41: "-41: Disastrous — you fell behind and the game followed suit.",
+    -40: "-40: Catastrophic — you were a win condition… just not for your team.",
+
+    -39: "-39: Severely rough — each minute felt harder than the last, and not by accident.",
+    -38: "-38: Very rough — you kept giving the enemy team exactly what they wanted.",
+    -37: "-37: Horrid — your teammates spent more time compensating than competing.",
+    -36: "-36: Extremely messy — advantage leaked out faster than it came in.",
+    -35: "-35: Trainwreck — involved in everything, improving nothing.",
+    -34: "-34: Deeply damaging — your presence opened doors the enemy team happily walked through.",
+    -33: "-33: Painful — you handed out opportunities like party favors.",
+    -32: "-32: Ugly — consistently misaligned with what the game was asking for.",
+    -31: "-31: Grim — lots of effort, very little leverage.",
+    -30: "-30: Very bad — behind the flow and punished for it repeatedly.",
+
+    -29: "-29: Rough — you committed to ideas the game had already rejected.",
+    -28: "-28: Bad — value went out, value did not come back.",
+    -27: "-27: Really poor — present on the map, absent from the win condition.",
+    -26: "-26: Miserable — manageable situations became losses on your watch.",
+    -25: "-25: Strong negative — you traded resources like they were expiring.",
+    -24: "-24: Weak — you created openings the enemy team reliably exploited.",
+    -23: "-23: Not good — you ceded control and never really got it back.",
+    -22: "-22: Struggling — consistently on the wrong side of important moments.",
+    -21: "-21: Pretty bad — the negatives outpaced the positives all game long.",
+    -20: "-20: Below par — not the only issue, but unmistakably part of it.",
+
+    -19: "-19: Underwhelming — you failed to steady the game when it needed a handrail.",
+    -18: "-18: Poor — missed chances, punished mistakes, no real recovery.",
+    -17: "-17: Subpar — plenty of motion, not much progress.",
+    -16: "-16: Off it — late to matter, early to suffer consequences.",
+    -15: "-15: Not great — gave away more than you got, consistently.",
+    -14: "-14: Sloppy — good intentions, expensive execution.",
+    -13: "-13: Shaky — occasional usefulness, persistent uncertainty.",
+    -12: "-12: Weak — a few moments, not enough influence.",
+    -11: "-11: Low value — around a lot, shaping little.",
+    -10: "-10: Mildly negative — a slow drain on win probability.",
+
+    -9: "-9: Slightly harmful — just enough mistakes to matter.",
+    -8: "-8: Slightly bad — nothing disastrous, nothing helpful either.",
+    -7: "-7: Not ideal — pressure without payoff.",
+    -6: "-6: Small negative — more drag than damage.",
+    -5: "-5: Just below neutral — close, but not quite.",
+    -4: "-4: Slight negative — a few avoidable costs.",
+    -3: "-3: Minor drag — quiet, with some unfortunate moments.",
+    -2: "-2: Nearly neutral — little downside, little upside.",
+    -1: "-1: Near zero — you left very few fingerprints on the game.",
+    0: "0: Neutral — the game neither thanked you nor blamed you.",
+
+    1: "1: Barely positive — a small nudge in the right direction.",
+    2: "2: Slight help — a couple things quietly went your team’s way.",
+    3: "3: Minor contribution — you added a bit more than you took.",
+    4: "4: Small positive — useful, if unspectacular.",
+    5: "5: Just above neutral — modest help over time.",
+
+    6: "6: Light impact — your actions started turning into value.",
+    7: "7: Decent — a few plays that genuinely mattered.",
+    8: "8: Solid — reliable, functional, and helpful.",
+    9: "9: Good — you were doing your part, and then some.",
+    10: "10: Strong — consistent, win-supporting decisions.",
+
+    11: "11: Pretty good — you showed up when it counted.",
     12: "12: Very decent — you made the game easier for your team.",
-    13: "13: Helpful — your decisions more often improved the situation.",
-    14: "14: Good value — you turned your time into meaningful impact.",
-    15: "15: Strong value — you were reliably doing the right things.",
-    16: "16: Really good — you were a net advantage across the game.",
-    17: "17: High impact — you created pressure instead of absorbing it.",
-    18: "18: Very impactful — you made things happen, not just reacted.",
-    19: "19: Great — you were a genuine force in this match.",
-    20: "20: Excellent — you were a major reason your team had a chance.",
-    21: "21: Big impact — you were shaping fights and map control.",
-    22: "22: Huge help — your contributions were obvious and repeatable.",
-    23: "23: Very strong — you consistently swung moments your way.",
-    24: "24: Massive — you were driving the pace, not following it.",
-    25: "25: Dominant — you were a problem the enemy couldn’t ignore.",
-    26: "26: Scary good — your plays created real win conditions.",
-    27: "27: Crushing — you kept converting advantages into more advantages.",
-    28: "28: Monster game — you were dictating how the map was played.",
-    29: "29: Absurdly strong — you made the enemy feel outnumbered.",
-    30: "30: Ridiculous impact — you were everywhere and it all mattered.",
-    31: "31: Outrageous — you turned the match into your personal project.",
-    32: "32: Insane — the enemy’s best option was “avoid you.”",
-    33: "33: Completely dominant — you were winning multiple lanes at once.",
-    34: "34: Disgusting — you were stacking advantages like it was scripted.",
-    35: "35: Unreal — you were the reason the game had a storyline.",
-    36: "36: Legendary — every move you made changed the game state.",
-    37: "37: Godlike — you were smothering them with pressure.",
-    38: "38: Absolutely cracked — you made pro-level choices all match.",
-    39: "39: Holy hell — you weren’t playing Dota, you were running it.",
-    40: "40: Peak performance — this was a carry job people complain about in all-chat.",
+    13: "13: Helpful — your decisions usually improved the situation.",
+    14: "14: Good value — actions turned into advantage.",
+    15: "15: Strong value — correct play, visible payoff.",
+
+    16: "16: Really good — more advantage created than conceded.",
+    17: "17: High impact — you pushed the game forward, not sideways.",
+    18: "18: Very impactful — you forced reactions instead of waiting for them.",
+    19: "19: Great — you shaped key moments in your team’s favor.",
+    20: "20: Excellent — a genuine reason your team stayed winning-capable.",
+
+    21: "21: Big impact — you repeatedly influenced how the game unfolded.",
+    22: "22: Huge help — your presence clearly mattered.",
+    23: "23: Very strong — important moments kept breaking your way.",
+    24: "24: Massive — you set the pace instead of chasing it.",
+    25: "25: Dominant — the enemy team had to play around you.",
+
+    26: "26: Scary good — you created win conditions through steady pressure.",
+    27: "27: Crushing — advantage kept compounding under your watch.",
+    28: "28: Monster game — you dictated the overall flow.",
+    29: "29: Absurdly strong — the enemy team struggled to respond intelligently.",
+    30: "30: Ridiculous impact — you were everywhere that mattered.",
+
+    31: "31: Outrageous — neutral moments kept turning favorable because of you.",
+    32: "32: Insane — you forced bad choices without overextending.",
+    33: "33: Completely dominant — multiple parts of the game bent your way.",
+    34: "34: Overwhelming — your advantages stacked faster than answers appeared.",
+    35: "35: Elite — consistently excellent decisions with real leverage.",
+
+    36: "36: Exceptional — high-stakes moments kept landing in your favor.",
+    37: "37: Near-perfect — disciplined, efficient, and ruthlessly effective.",
+    38: "38: Masterclass — you controlled the game with intent and clarity.",
+    39: "39: Match-defining — the outcome followed your decisions.",
+    40: "40: Top-tier — you were the central reason win odds climbed.",
+
+    41: "41: Dominating — the enemy team never found a clean response.",
+    42: "42: Suffocating — their options disappeared minute by minute.",
+    43: "43: Oppressive — you dictated terms, they reacted poorly.",
+    44: "44: Unstoppable — even coordinated responses weren’t enough.",
+    45: "45: Peak-level performance — about as good as this game allowed.",
+
+    46: "46: Tournament-grade — consistently correct under pressure, with payoff.",
+    47: "47: Iconic carry — the enemy team played catch-up all game.",
+    48: "48: Mythic takeover — the match revolved around your decisions.",
+    49: "49: Legendary carry job — win condition and safety net combined.",
+    50: "50: Godlike — you controlled outcomes, not just moments.",
+    51: "51: Unreal — an all-time performance; hope was the enemy team’s only plan.",
 }
 
-_LOW_BLANKET = "<= -41: Absolute disaster — if you weren’t intentionally feeding, Dota might not be for you."
-_HIGH_BLANKET = ">= +41: Unhinged carry job — were you smurfing, against bots, or secretly a retired pro?"
+_LOW_BLANKET = "≤ -52: Off-the-charts negative — so damaging it exceeds the normal scale."
+_HIGH_BLANKET = "≥ +52: Off-the-charts positive — so strong it exceeds the normal scale."
 
 
 def impact_explanation_line(score_int: int) -> str:
@@ -98,13 +134,12 @@ def impact_explanation_line(score_int: int) -> str:
     Return the single-line impact explanation for a whole-integer IMP score.
 
     Rules:
-    - Unique line for every integer score from -40 to +40 (inclusive)
-    - Blanket line for <= -41 and >= +41
+    - Unique line for every integer score from -51 to +51 (inclusive)
+    - Blanket line for <= -52 and >= +52
     - No mode branching, no economy logic, deterministic only
     """
-    if score_int <= -41:
+    if score_int <= -52:
         return _LOW_BLANKET
-    if score_int >= 41:
+    if score_int >= 52:
         return _HIGH_BLANKET
     return _EXPLANATIONS.get(score_int, f"{score_int}: Unknown impact score (no catalog line).")
-
