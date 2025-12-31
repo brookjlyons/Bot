@@ -76,6 +76,11 @@ def build_discord_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     if avatar_url:
         embed["thumbnail"] = {"url": avatar_url}
 
+    # 🖼️ Optional hero banner as IMAGE (bottom of embed)
+    hero_banner_url = result.get("heroBannerUrl")
+    if hero_banner_url:
+        embed["image"] = {"url": hero_banner_url}
+
     return embed
 
 
@@ -122,6 +127,11 @@ def build_fallback_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
     if avatar_url:
         embed["thumbnail"] = {"url": avatar_url}
+
+    # 🖼️ Optional hero banner as IMAGE (bottom of embed)
+    hero_banner_url = result.get("heroBannerUrl")
+    if hero_banner_url:
+        embed["image"] = {"url": hero_banner_url}
 
     return embed
 
