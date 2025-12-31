@@ -25,8 +25,10 @@ def get_title_phrase(score: float, won: bool, compound_flags: list[str], rng: Op
     Return (emoji, phrase) for the title line based on performance score,
     win/loss, and important flags.
 
-    Determinism: prefers provided local RNG; falls back to module-level random.
-    Backward compatible with callers that don't pass `rng`.
+    NOTE:
+    - Emojis are intentionally suppressed. The first tuple element is
+      returned as an empty string for backward compatibility.
+    - Determinism preserved via optional local RNG.
     """
     chooser = rng.choice if rng is not None else random.choice
 
@@ -38,45 +40,43 @@ def get_title_phrase(score: float, won: bool, compound_flags: list[str], rng: Op
     # --- Flag-based overrides (guarded) ---
     # Only allow these snarky overrides on LOSSES (Bible: no snark on wins).
     if not won and "fed_no_impact" in compound_flags:
-        return "☠️", "fed hard and lost the game"
+        return "", "fed hard and lost the game"
     if not won and "farmed_did_nothing" in compound_flags:
-        return "💀", "farmed but made no impact"
+        return "", "farmed but made no impact"
     # Neutral overrides are safe on both outcomes
     if "no_stacking_support" in compound_flags:
-        return "🧺", "support who forgot to stack jungle"
+        return "", "support who forgot to stack jungle"
     if "low_kp" in compound_flags:
-        return "🤷", "low kill participation"
+        return "", "low kill participation"
 
     # Very low neutral zone (−4 … +4)
     if -4 <= score_val <= 4:
         tier = "very_low"
         bank = _pick_title_bank("win" if won else "loss", tier)
-        emoji = "🎲" if won else "💀"
         phrase = chooser(bank) if bank else "played a game"
-        return emoji, phrase
+        return "", phrase
 
-    # Positive bands
-    if score_val >= 50:
-        tier, win_emoji, loss_emoji = "legendary", "🧨", "🧨"
-    elif score_val >= 35:
-        tier, win_emoji, loss_emoji = "high", "💥", "💪"
-    elif score_val >= 20:
-        tier, win_emoji, loss_emoji = "mid", "🔥", "😓"
+    # Positive bands (aligned to IMP line bands)
+    if score_val >= 41:
+        tier = "legendary"
+    elif score_val >= 21:
+        tier = "high"
+    elif score_val >= 11:
+        tier = "mid"
     elif score_val >= 5:
-        tier, win_emoji, loss_emoji = "low", "🎯", "☠️"
-    # Negative bands (mirrored)
-    elif score_val <= -50:
-        tier, win_emoji, loss_emoji = "neg_legendary", "🎁", "🤡"
-    elif score_val <= -35:
-        tier, win_emoji, loss_emoji = "neg_high", "🧯", "💀"
-    elif score_val <= -20:
-        tier, win_emoji, loss_emoji = "neg_mid", "🫠", "☠️"
+        tier = "low"
+    # Negative bands (mirrored; aligned to IMP line bands)
+    elif score_val <= -41:
+        tier = "neg_legendary"
+    elif score_val <= -21:
+        tier = "neg_high"
+    elif score_val <= -11:
+        tier = "neg_mid"
     elif score_val <= -5:
-        tier, win_emoji, loss_emoji = "neg_low", "😅", "😓"
+        tier = "neg_low"
     else:
-        tier, win_emoji, loss_emoji = "very_low", "🎲", "💀"
+        tier = "very_low"
 
     bank = _pick_title_bank("win" if won else "loss", tier)
-    emoji = win_emoji if won else loss_emoji
     phrase = chooser(bank) if bank else "played a game"
-    return emoji, phrase
+    return "", phrase
