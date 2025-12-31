@@ -33,6 +33,8 @@ __all__ = [
 _AVATAR_BASE_URL = "https://raw.githubusercontent.com/brookjlyons/Bot/refs/heads/main/data/avatars/"
 _AVATAR_DEFAULT_URL = f"{_AVATAR_BASE_URL}default.jpg"
 
+_HERO_BANNER_BASE_URL = "https://raw.githubusercontent.com/brookjlyons/Bot/refs/heads/main/data/hero_banners/"
+
 
 def _avatar_url_from_steam32(steam32: Any) -> str:
     """
@@ -46,6 +48,42 @@ def _avatar_url_from_steam32(steam32: Any) -> str:
     if sid <= 0:
         return _AVATAR_DEFAULT_URL
     return f"{_AVATAR_BASE_URL}{sid}.jpg"
+
+
+def _hero_banner_filename(hero_name: Any) -> str:
+    """
+    Convert a hero name into the banner filename convention used in data/hero_banners:
+      - Title Case words joined by underscores
+      - spaces/hyphens/underscores normalized
+      - apostrophes removed
+    Examples:
+      "Abaddon" -> "Abaddon"
+      "Anti-Mage" -> "Anti_Mage"
+      "Nature's Prophet" -> "Natures_Prophet"
+      "npc_dota_hero_keeper_of_the_light" -> "Keeper_Of_The_Light"
+    """
+    raw = str(hero_name or "").strip()
+    if not raw:
+        return ""
+    if raw.lower().startswith("npc_dota_hero_"):
+        raw = raw[len("npc_dota_hero_"):]
+    raw = raw.replace("-", " ").replace("_", " ")
+    raw = raw.replace("’", "").replace("'", "")
+    parts = [p for p in raw.split() if p.strip()]
+    if not parts:
+        return ""
+    return "_".join([p[:1].upper() + p[1:].lower() if p else "" for p in parts])
+
+
+def _hero_banner_url(hero_name: Any) -> str:
+    """
+    Deterministically derive a public hero banner URL.
+    Always returns a non-empty URL string (never None).
+    """
+    fname = _hero_banner_filename(hero_name)
+    if not fname:
+        return ""
+    return f"{_HERO_BANNER_BASE_URL}{fname}.jpg"
 
 
 def _first3_lines(value) -> list[str]:
@@ -164,6 +202,11 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
 
     avatar_url = _avatar_url_from_steam32(player.get("steamAccountId"))
 
+    hero_display = player.get("hero", {}).get("displayName")
+    hero_fallback = normalize_hero_name(player.get("hero", {}).get("name", ""))
+    hero_name = hero_display or hero_fallback
+    hero_banner_url = _hero_banner_url(hero_display or player.get("hero", {}).get("name", "") or hero_name)
+
     positives_lines = _first3_lines(advice.get("positives"))
     negatives_lines = _first3_lines(advice.get("negatives"))
     flags_lines = _first3_lines(advice.get("flags"))
@@ -188,7 +231,7 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         "mode": mode,
         "gameModeName": game_mode_name,
         "role": player.get("roleBasic", "unknown"),
-        "hero": player.get("hero", {}).get("displayName") or normalize_hero_name(player.get("hero", {}).get("name", "")),
+        "hero": hero_name,
         "kda": f"{player.get('kills', 0)}/{player.get('deaths', 0)}/{player.get('assists', 0)}",
         "duration": match.get("durationSeconds", 0),
         "isVictory": is_victory,
@@ -199,6 +242,7 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
         "tips": tips_lines,
         "matchId": match.get("id"),
         "avatarUrl": avatar_url,
+        "heroBannerUrl": hero_banner_url,
     }
 
 
@@ -229,6 +273,11 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
 
     avatar_url = _avatar_url_from_steam32(player.get("steamAccountId"))
 
+    hero_display = player.get("hero", {}).get("displayName")
+    hero_fallback = normalize_hero_name(player.get("hero", {}).get("name", ""))
+    hero_name = hero_display or hero_fallback
+    hero_banner_url = _hero_banner_url(hero_display or player.get("hero", {}).get("name", "") or hero_name)
+
     return {
         "playerName": player_name,
         "emoji": emoji,
@@ -237,7 +286,7 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
         "mode": mode,
         "gameModeName": game_mode_name,
         "role": player.get("roleBasic", "unknown"),
-        "hero": player.get("hero", {}).get("displayName") or normalize_hero_name(player.get("hero", {}).get("name", "")),
+        "hero": hero_name,
         "kda": f"{player.get('kills', 0)}/{player.get('deaths', 0)}/{player.get('assists', 0)}",
         "duration": duration,
         "isVictory": is_victory,
@@ -245,4 +294,5 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
         "statusNote": status_note,
         "matchId": match.get("id"),
         "avatarUrl": avatar_url,
+        "heroBannerUrl": hero_banner_url,
     }
