@@ -461,7 +461,7 @@ def build_party_full_embed(result: Dict[str, Any]) -> Dict[str, Any]:
     stack_label = f"{stack_n}-stack" if stack_n > 0 else "-"
 
     wl = _victory_label(result.get("isVictory"))
-    title = f"👥 Party Match — {stack_label}"
+    title = f"PARTY MATCH — {stack_label}"
     if wl:
         title = f"{title} — {wl}"
 
