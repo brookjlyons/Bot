@@ -16,15 +16,15 @@ from feedback.catalog.impact import impact_explanation_line
 from bot.formatter_pkg.stats_sets import NORMAL_STATS, TURBO_STATS
 from bot.formatter_pkg.mode import resolve_game_mode_name, is_turbo_mode
 from bot.formatter_pkg.util import normalize_hero_name, get_role, get_baseline
-from bot.formatter_pkg.embed import build_discord_embed, build_fallback_embed, build_party_fallback_embed, build_duel_fallback_embed
+from bot.formatter_pkg.embed import build_discord_embed, build_fallback_embed, build_party_fallback_embed, build_duel_fallback_embed, build_party_full_embed
 
 __all__ = [
     # constants
     "NORMAL_STATS", "TURBO_STATS",
     # main formatters
-    "format_match_embed", "format_fallback_embed",
+    "format_match_embed", "format_fallback_embed", "format_party_full_embed",
     # embed builders
-    "build_discord_embed", "build_fallback_embed", "build_party_fallback_embed", "build_duel_fallback_embed",
+    "build_discord_embed", "build_fallback_embed", "build_party_fallback_embed", "build_duel_fallback_embed", "build_party_full_embed",
     # utilities (deprecated kept public)
     "normalize_hero_name", "get_role", "get_baseline",
 ]
@@ -365,6 +365,137 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
         "basicStats": basic_stats,
         "statusNote": status_note,
         "matchId": match.get("id"),
+        "avatarUrl": avatar_url,
+        "heroBannerUrl": hero_banner_url,
+    }
+
+
+def format_party_full_embed(
+    match: dict,
+    members: list[dict],
+    *,
+    is_victory: bool | None = None,
+) -> dict:
+    """
+    Build the formatter result dict for a FULL party match embed.
+    Assumes IMP is present for ALL members.
+    No summary generation in this phase.
+    """
+
+    def _safe_float(x: Any) -> float:
+        try:
+            f = float(x)
+        except Exception:
+            return 0.0
+        if f != f:
+            return 0.0
+        return f
+
+    def _safe_int(x: Any, default: int = 0) -> int:
+        try:
+            return int(x)
+        except Exception:
+            try:
+                return int(float(x))
+            except Exception:
+                return default
+
+    def _hero_name_from_player(p: dict) -> str:
+        try:
+            hv = p.get("heroName") or p.get("heroDisplayName") or p.get("hero")
+            if isinstance(hv, str) and hv.strip():
+                return hv.strip()
+            if isinstance(hv, dict):
+                dn = hv.get("displayName") or hv.get("name")
+                if isinstance(dn, str) and dn.strip():
+                    return dn.strip()
+        except Exception:
+            pass
+        try:
+            hero_obj = p.get("hero") or {}
+            if isinstance(hero_obj, dict):
+                dn = hero_obj.get("displayName") or ""
+                if isinstance(dn, str) and dn.strip():
+                    return dn.strip()
+                nm = hero_obj.get("name") or ""
+                if isinstance(nm, str) and nm.strip():
+                    return normalize_hero_name(nm)
+        except Exception:
+            pass
+        return ""
+
+    def _member_key(p: dict):
+        imp = _safe_float(p.get("imp"))
+        sid = _safe_int(p.get("steamAccountId"), 0)
+        return (-imp, sid)
+
+    members_sorted = sorted(list(members or []), key=_member_key)
+
+    member_lines: list[str] = []
+    impact_vals: list[int] = []
+
+    for p in members_sorted:
+        imp_int = int(round(_safe_float(p.get("imp"))))
+        impact_vals.append(imp_int)
+
+        name = ""
+        try:
+            for key in ("playerName", "name", "steamName", "personaName", "personaname"):
+                v = p.get(key)
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+                    break
+        except Exception:
+            pass
+        if not name:
+            try:
+                steam_acct = p.get("steamAccount") or {}
+                v = steam_acct.get("name")
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+            except Exception:
+                pass
+        if not name:
+            name = str(p.get("steamAccountId") or "Unknown")
+
+        try:
+            k = int(p.get("kills") or 0)
+        except Exception:
+            k = 0
+        try:
+            d = int(p.get("deaths") or 0)
+        except Exception:
+            d = 0
+        try:
+            a = int(p.get("assists") or 0)
+        except Exception:
+            a = 0
+
+        line1 = f"{name} — {k}/{d}/{a} — IMP {imp_int:+d}"
+        line2 = f"↳ {impact_explanation_line(imp_int)}"
+        member_lines.append(f"{line1}\n{line2}")
+
+    avg_imp = int(round(sum(impact_vals) / len(impact_vals))) if impact_vals else 0
+
+    top = members_sorted[0] if members_sorted else {}
+    avatar_url = _avatar_url_from_steam32(top.get("steamAccountId"))
+
+    top_hero = _hero_name_from_player(top)
+    hero_banner_url = _hero_banner_url(top_hero)
+
+    game_mode_field = match.get("gameMode")
+    raw_label = (match.get("gameModeName") or "").upper()
+    game_mode_name = resolve_game_mode_name(game_mode_field, raw_label)
+
+    return {
+        "matchId": match.get("id"),
+        "isVictory": is_victory,
+        "gameModeName": game_mode_name,
+        "durationSeconds": match.get("durationSeconds", 0),
+        "stackSize": len(members_sorted),
+        "partyImpactAvgInt": avg_imp,
+        "partyImpactLine": impact_explanation_line(avg_imp),
+        "membersLines": member_lines,
         "avatarUrl": avatar_url,
         "heroBannerUrl": hero_banner_url,
     }
