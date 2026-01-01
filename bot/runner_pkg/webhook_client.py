@@ -57,6 +57,8 @@ def _is_party_or_duel_embed(embed: dict) -> bool:
     Deterministic routing based on embed title produced by formatter_pkg/embed.py.
     Party pending embeds:
       title starts with "⏳ Party (Pending Stats)"
+    Party full embeds:
+      title starts with "👥 Party Match"
     Duel embeds:
       title == "⚔️ Guild Duel Detected"
     """
@@ -67,6 +69,8 @@ def _is_party_or_duel_embed(embed: dict) -> bool:
     if not title:
         return False
     if title.startswith("⏳ Party (Pending Stats)"):
+        return True
+    if title.startswith("👥 Party Match"):
         return True
     if title == "⚔️ Guild Duel Detected":
         return True
