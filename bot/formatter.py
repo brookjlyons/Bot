@@ -36,6 +36,71 @@ _AVATAR_DEFAULT_URL = f"{_AVATAR_BASE_URL}default.jpg"
 _HERO_BANNER_BASE_URL = "https://raw.githubusercontent.com/brookjlyons/Bot/refs/heads/main/data/hero_banners/"
 
 
+_OBFUSCATE_STEAM32 = 48165461
+
+_ZERO_WIDTH_CHARS = (
+    "\u200B",  # ZERO WIDTH SPACE
+    "\u200C",  # ZERO WIDTH NON-JOINER
+    "\u200D",  # ZERO WIDTH JOINER
+    "\u2060",  # WORD JOINER
+)
+
+_HOMOGLYPH_MAP = {
+    "i": ("i", "\u0456"),  # Latin i, Cyrillic і
+    "K": ("K", "\u039A"),  # Latin K, Greek Κ
+    "g": ("g", "\u0261"),  # g, Latin script g
+}
+
+
+def _maybe_obfuscate_player_name(player_name: str, steam32: Any, rng: random.Random) -> str:
+    """
+    Lightweight, deterministic nickname obfuscation (Unicode) for a single player.
+    Purpose: break naive copy/paste name matching while rendering identically in Discord.
+    """
+    try:
+        sid = int(steam32)
+    except Exception:
+        sid = 0
+
+    if sid != _OBFUSCATE_STEAM32:
+        return str(player_name or "Player")
+
+    name = str(player_name or "Player")
+
+    chars: list[str] = []
+    for ch in name:
+        # Optional homoglyph substitution (stable under rng)
+        try:
+            alts = _HOMOGLYPH_MAP.get(ch)
+            if alts:
+                ch = rng.choice(alts)
+        except Exception:
+            pass
+
+        chars.append(ch)
+
+        # Optional zero-width insertion after characters
+        try:
+            if rng.random() < 0.4:
+                chars.append(rng.choice(_ZERO_WIDTH_CHARS))
+        except Exception:
+            pass
+
+    # Optional leading/trailing invisibles (extra salt)
+    try:
+        if rng.random() < 0.3:
+            chars.insert(0, rng.choice(_ZERO_WIDTH_CHARS))
+    except Exception:
+        pass
+    try:
+        if rng.random() < 0.3:
+            chars.append(rng.choice(_ZERO_WIDTH_CHARS))
+    except Exception:
+        pass
+
+    return "".join(chars)
+
+
 def _avatar_url_from_steam32(steam32: Any) -> str:
     """
     Deterministically derive a public avatar URL from Steam32.
@@ -182,6 +247,8 @@ def format_match_embed(player: dict, match: dict, stats_block: dict, player_name
     except Exception:
         pass
 
+    player_name = _maybe_obfuscate_player_name(player_name, player.get("steamAccountId"), rng)
+
     # Advice (pass rng if supported; fall back to legacy signature otherwise)
     try:
         advice = generate_advice(tags, stats, mode=mode, rng=rng)  # new preferred path
@@ -277,6 +344,11 @@ def format_fallback_embed(player: dict, match: dict, player_name: str = "Player"
     hero_fallback = normalize_hero_name(player.get("hero", {}).get("name", ""))
     hero_name = hero_display or hero_fallback
     hero_banner_url = _hero_banner_url(hero_display or player.get("hero", {}).get("name", "") or hero_name)
+
+    seed_str = f"{match.get('id')}:{player.get('steamAccountId')}"
+    seed_hex = hashlib.md5(seed_str.encode()).hexdigest()
+    rng = random.Random(int(seed_hex, 16))
+    player_name = _maybe_obfuscate_player_name(player_name, player.get("steamAccountId"), rng)
 
     return {
         "playerName": player_name,
