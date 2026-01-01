@@ -19,6 +19,8 @@ from bot.formatter import (
     format_match_embed,
     build_discord_embed,
     build_fallback_embed,
+    format_party_full_embed,
+    build_party_full_embed,
 )
 from .webhook_client import (
     edit_discord_message,
@@ -542,7 +544,15 @@ def process_pending_upgrades_and_expiry(state: Dict[str, Any]) -> bool:
                 if any((p.get("imp") is None) for p in members):
                     continue
 
-                embed = _build_party_upgrade_embed(int(match_id), str(party_id), int(is_radiant), members)
+                is_victory = None
+                try:
+                    if members:
+                        is_victory = members[0].get("isVictory")
+                except Exception:
+                    is_victory = None
+
+                result = format_party_full_embed(data, members, is_victory=is_victory)
+                embed = build_party_full_embed(result)
                 ok, code, _ = edit_discord_message(message_id, embed, base_url, exact_base=True, structured=True)
                 if ok:
                     print(f"🔁 Upgraded party pending → upgraded embed for match {match_id} (party {party_id}, side {is_radiant})")
