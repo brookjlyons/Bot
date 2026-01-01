@@ -420,6 +420,102 @@ def build_party_fallback_embed(
     )
 
 
+def build_party_full_embed(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build the FULL party match embed (no summary yet).
+
+    Contract (result dict):
+      - matchId
+      - isVictory (bool|None)
+      - gameModeName (str)
+      - durationSeconds (int)
+      - stackSize (int)
+      - partyImpactAvgInt (int)
+      - partyImpactLine (str)
+      - membersVal (str) OR membersLines (list[str])  (Members field content)
+      - avatarUrl (optional)
+      - heroBannerUrl (optional)
+    """
+    from datetime import datetime, timezone
+
+    def _victory_label(v: Any) -> str:
+        if v is True:
+            return "Win"
+        if v is False:
+            return "Loss"
+        return ""
+
+    def _safe_int(x: Any, default: int = 0) -> int:
+        try:
+            return int(x)
+        except Exception:
+            try:
+                return int(float(x))
+            except Exception:
+                return default
+
+    now = datetime.now(timezone.utc).astimezone()
+    timestamp = now.isoformat()
+
+    stack_n = _safe_int(result.get("stackSize"), 0)
+    stack_label = f"{stack_n}-stack" if stack_n > 0 else "-"
+
+    wl = _victory_label(result.get("isVictory"))
+    title = f"👥 Party Match — {stack_label}"
+    if wl:
+        title = f"{title} — {wl}"
+
+    impact_score_int = result.get("partyImpactAvgInt", None)
+    impact_score_int_str = "-" if impact_score_int is None else str(int(_safe_int(impact_score_int, 0)))
+    impact_explanation_line = str(result.get("partyImpactLine", "-") or "-")
+
+    impact_emoji = _impact_emoji(impact_score_int)
+    impact_label = f"{impact_emoji} Impact {impact_emoji}"
+
+    mode_label = str(result.get("gameModeName", "Unknown") or "Unknown")
+    dur_label = _format_duration_seconds(_safe_int(result.get("durationSeconds"), 0))
+
+    members_val = str(result.get("membersVal", "") or "").strip()
+    if not members_val:
+        lines = result.get("membersLines")
+        if isinstance(lines, list):
+            members_val = "\n".join([str(x) for x in lines if str(x or "").strip()]).strip()
+    if not members_val:
+        members_val = "-"
+
+    fields: List[Dict[str, Any]] = [
+        {"name": "Mode", "value": mode_label, "inline": True},
+        {"name": "Duration", "value": dur_label, "inline": True},
+        {"name": "Stack", "value": stack_label, "inline": True},
+        {"name": "Members", "value": members_val, "inline": False},
+    ]
+
+    embed: Dict[str, Any] = {
+        "title": title,
+        "description": f"{impact_label} — {impact_score_int_str}\n{impact_explanation_line}",
+        "fields": fields,
+        "footer": {"text": f"Match ID: {result.get('matchId', '-')}"},
+        "timestamp": timestamp,
+    }
+
+    if result.get("isVictory") is True:
+        embed["color"] = COLOR_WIN
+    elif result.get("isVictory") is False:
+        embed["color"] = COLOR_LOSS
+
+    # 🖼️ Optional avatar as THUMBNAIL
+    avatar_url = result.get("avatarUrl") or result.get("steamAvatarUrl")
+    if avatar_url:
+        embed["thumbnail"] = {"url": avatar_url}
+
+    # 🖼️ Optional hero banner as IMAGE (bottom of embed)
+    hero_banner_url = result.get("heroBannerUrl")
+    if hero_banner_url:
+        embed["image"] = {"url": hero_banner_url}
+
+    return embed
+
+
 def build_duel_fallback_embed(match_id: int | dict, radiant: list[dict] | None = None, dire: list[dict] | None = None) -> dict:
     """Build a simple fallback embed for a detected guild duel (Phase 2a)."""
     from datetime import datetime, timezone
