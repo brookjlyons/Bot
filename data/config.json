@@ -15,7 +15,6 @@
     "Big Ol' Bag O' Dicks": 84228471,
     "Blanket": 81478165,
     "BuckMickShot": 325069952,
-    "Cpt_Marr": 173592116,
     "Dark Star": 120676511,
     "DaddyGamer": 176083523,
     "Dak": 94913811,
@@ -32,7 +31,6 @@
     "Microsoft Outage": 46652880,
     "Mike Hunt": 1621701595,
     "Mugen": 265066204,
-    "NZ Wolf": 92226250,
     "Object": 23573836,
     "OWNZ.FearlessC": 67769239,
     "popcorn": 39690322,
@@ -50,9 +48,7 @@
     "TurtleOmatic": 43674903,
     "Tyrañt": 52996844,
     "War Pig (uber_noob)": 919566299,
-    "WhiteWolf": 1853597338,
-    "WoTeFa": 426444446,
-    "Yippee ki-yay": 89774037
+    "WhiteWolf": 1853597338
   },
 
   "players_public": {
@@ -74,7 +70,6 @@
     "Microsoft Outage": 46652880,
     "Mike Hunt": 1621701595,
     "Mugen": 265066204,
-    "NZ Wolf": 92226250,
     "Object": 23573836,
     "OWNZ.FearlessC": 67769239,
     "popcorn": 39690322,
@@ -88,8 +83,7 @@
     "StingKing": 48165461,
     "The presence of your savior": 108269981,
     "Top G": 155598332,
-    "TurtleOmatic": 43674903,
-    "Yippee ki-yay": 89774037
+    "TurtleOmatic": 43674903
   },
 
   "players_private": {
@@ -97,7 +91,6 @@
     "bare": 86737626,
     "Base": 126397716,
     "Ben Davis": 914137224,
-    "Cpt_Marr": 173592116,
     "DaddyGamer": 176083523,
     "DopaminE": 1051062040,
     "george": 91897763,
@@ -107,8 +100,7 @@
     "Q-Q Plot": 32311704,
     "Tyrañt": 52996844,
     "War Pig (uber_noob)": 919566299,
-    "WhiteWolf": 1853597338,
-    "WoTeFa": 426444446
+    "WhiteWolf": 1853597338
   },
 
   "discord_ids": {
@@ -124,7 +116,6 @@
     "Big Ol' Bag O' Dicks": "308145461183643650",
     "Blanket": "1094843096082170019",
     "BuckMickShot": "299134408756297729",
-    "Cpt_Marr": "",
     "Dark Star": "",
     "DaddyGamer": "",
     "Dak": "519769207387193356",
@@ -141,7 +132,6 @@
     "Microsoft Outage": "363357919674236929",
     "Mike Hunt": "398098674040832000",
     "Mugen": "336862389289091076",
-    "NZ Wolf": "180972773630410752",
     "Object": "938009698706268180",
     "OWNZ.FearlessC": "1435154514905661501",
     "popcorn": "444430851586129921",
@@ -153,14 +143,12 @@
     "Slipstream": "847062650479312926",
     "Sneakyshrew": "305284165790859284",
     "Squoogle": "272973121794080768",
-    "StingKing": "",
+    "StingKing": "241657005624786955",
     "The presence of your savior": "410444687434973190",
     "Top G": "",
     "TurtleOmatic": "365438351634857985",
     "Tyrañt": "630581207213801489",
     "War Pig (uber_noob)": "700837979320483862",
-    "WhiteWolf": "",
-    "WoTeFa": "860438012857286688",
-    "Yippee ki-yay": "684311501263208448"
+    "WhiteWolf": ""
   }
 }
